@@ -7,7 +7,7 @@
       "turns": [
         {
           "client_message": "Me convenciste, ¿puedo pasar a verlo el sábado?",
-          "response": "¡Qué bien! El sábado es perfecto. ¿A qué hora te gustaría venir para que agendemos la visita?",
+          "response": "¡Por supuesto! El sábado es un excelente día para visitarnos. ¿Te gustaría agendar una prueba de manejo también?",
           "analysis": {
             "intent": "scheduling",
             "strategy_type": "urgency"
@@ -38,7 +38,7 @@
             "tactic_adherence": 0.0,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "No se mencionaron promociones actuales, disponibilidad limitada o beneficios por tiempo limitado."
+            "rationale": "No menciona promociones actuales, disponibilidad limitada o beneficios por tiempo limitado."
           },
           "judge_score": 0.75,
           "passed": true
@@ -47,15 +47,15 @@
     },
     {
       "name": "precio_objecion",
-      "passed": true,
-      "avg_judge_score": 0.875,
+      "passed": false,
+      "avg_judge_score": 0.75,
       "turns": [
         {
           "client_message": "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?",
-          "response": "Entiendo tu preocupación al respecto. Lo que nos diferencia es la experiencia total que ofrecemos: desde el servicio personalizado hasta el soporte post-venta. Te invito a visitarnos y comprobar la calidad del servicio y la atención que brindamos, que pueden hacer la diferencia en tu decisión.",
+          "response": "Entiendo que el precio es un factor importante. Aunque no siempre podemos competir con el precio, ofrecemos una experiencia completa que incluye un servicio excepcional, soporte post-venta y una relación de confianza. ¿Te gustaría venir a visitarnos para conocer más sobre lo que podemos ofrecer?",
           "analysis": {
-            "intent": "comparison",
-            "strategy_type": "value_first"
+            "intent": "objection",
+            "strategy_type": "price_defense"
           },
           "knowledge": {
             "query_used": "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?",
@@ -75,25 +75,24 @@
             ]
           },
           "checks": {
-            "intent": true,
             "must_not_mention": true
           },
           "judge": {
-            "relevance": 1.0,
-            "tactic_adherence": 0.5,
+            "relevance": 0.5,
+            "tactic_adherence": 0.0,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "La respuesta no enfatiza suficientemente el valor total, beneficios y ROI antes de discutir el precio."
+            "rationale": "No reencuadra el precio como una inversión a largo plazo ni desglosa el costo por día/mes."
           },
-          "judge_score": 0.875,
-          "passed": true
+          "judge_score": 0.625,
+          "passed": false
         },
         {
           "client_message": "Igual me parece caro, ¿no me pueden hacer un precio mejor?",
-          "response": "Entiendo que el precio pueda parecer elevado al principio. Muchos clientes comenzaron con esa misma preocupación, pero lo relevante es el costo total en el tiempo, no solo el precio inicial. Podemos agendar una cita con un especialista para revisar las diferentes opciones de financiamiento y configuraciones que se adapten mejor a tus necesidades.",
+          "response": "Entiendo tu preocupación. El precio final depende de varios factores como la configuración, trade-in y opciones de financiamiento. Si te parece, podemos agendar una cita con un especialista para revisar números exactos y buscar la mejor opción para ti.",
           "analysis": {
-            "intent": "objection",
-            "strategy_type": "price_defense"
+            "intent": "negotiation",
+            "strategy_type": "value_first"
           },
           "knowledge": {
             "query_used": "Igual me parece caro, ¿no me pueden hacer un precio mejor?",
@@ -120,7 +119,7 @@
             "tactic_adherence": 0.5,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "La táctica de desglosar el costo por día/mes no se aplicó."
+            "rationale": "No enfatiza el valor total, beneficios o ROI antes de discutir el precio."
           },
           "judge_score": 0.875,
           "passed": true
@@ -130,6 +129,6 @@
   ],
   "summary": {
     "total": 2,
-    "passed": 2
+    "passed": 1
   }
 }

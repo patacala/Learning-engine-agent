@@ -56,30 +56,38 @@ class PipelineRunner:
     opens its own SHORT session, so no connection is held across the LLM nodes.
     """
 
+    # Class-level (not instance-level): a new PipelineRunner is constructed on
+    # every single request (conversation.py, roleplay/service.py, voice/adapter.py
+    # all do `PipelineRunner(async_session_factory, cache=...)` inline), so an
+    # instance cache would rebuild the graph every time anyway. Keyed by
+    # (session_factory identity, cache identity, has_providers) — in practice
+    # session_factory is always the module-level `async_session_factory` and
+    # cache is always the `get_redis_cache()` singleton, so this collapses to
+    # one cached graph per boolean, built once per process. If someday
+    # build_cognitive_graph() starts depending on anything else that varies
+    # per request, this cache stops being valid and needs revisiting.
+    _graph_cache: dict[tuple[int, int, bool], object] = {}
+
     def __init__(self, session_factory, cache: RedisCache | None = None):
         self._sf = session_factory
         self.cache = cache
 
-    async def run(
-        self,
-        message: str,
-        client_id: UUID,
-        conversation_id: UUID,
-        agent_context: AgentContext | None = None,
-        store_user_message: bool = True,
-    ) -> PipelineResult:
-        """Run the cognitive pipeline and return a structured result."""
+    def _get_compiled_graph(self, has_providers: bool):
+        """Build (once per process) and cache the compiled graph variant."""
+        cache_key = (id(self._sf), id(self.cache), has_providers)
+        cached = PipelineRunner._graph_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         primary_llm = create_llm_provider()
         analyzer_llm = create_analyzer_llm()
 
-        # Build agent providers (all session_factory-backed; DB touched only on
-        # a Redis cache miss, in a short session).
         from prosales.engines.knowledge.pattern_retriever import PatternRetriever
         from prosales.infrastructure.agent.providers import AgentStyleProvider
 
         pattern_retriever = PatternRetriever(self._sf)
 
-        if agent_context and self.cache:
+        if has_providers:
             personality_provider = AgentPersonalityProvider(self._sf, self.cache)
             rule_provider = AgentRuleProvider(self._sf, self.cache)
             strategy_provider = AgentStrategyProvider(self._sf, self.cache)
@@ -96,7 +104,6 @@ class PipelineRunner:
             identity_provider = None
             style_provider = None
 
-        # Build and run pipeline
         graph = build_cognitive_graph(
             primary_llm=primary_llm,
             analyzer_llm=analyzer_llm,
@@ -113,8 +120,20 @@ class PipelineRunner:
             pattern_retriever=pattern_retriever,
             use_episodic=True,
         )
-
         compiled = graph.compile()
+        PipelineRunner._graph_cache[cache_key] = compiled
+        return compiled
+
+    async def run(
+        self,
+        message: str,
+        client_id: UUID,
+        conversation_id: UUID,
+        agent_context: AgentContext | None = None,
+        store_user_message: bool = True,
+    ) -> PipelineResult:
+        """Run the cognitive pipeline and return a structured result."""
+        compiled = self._get_compiled_graph(has_providers=bool(agent_context and self.cache))
 
         execution = PipelineExecution(
             conversation_id=conversation_id,

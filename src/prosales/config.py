@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     primary_llm_provider: str = "openai"
     primary_llm_model: str = "gpt-4o"
     analyzer_llm_model: str = "gpt-4o-mini"
+    # Fase 4.2: fuse intent/sentiment/stage/contact_signals into one LLM call
+    # instead of 4 parallel ones (~57% of turn latency measured 2026-09-23).
+    # Flip to False to roll back to the 4-call path without a redeploy if eval
+    # quality regresses — see tests/evals/.
+    use_unified_analyzer: bool = True
 
     # App
     app_env: str = "development"

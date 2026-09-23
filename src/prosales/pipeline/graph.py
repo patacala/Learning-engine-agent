@@ -2,12 +2,14 @@
 
 from langgraph.graph import END, StateGraph
 
+from prosales.config import settings
 from prosales.engines.analyzers.contact_signals import ContactSignalDetector
 from prosales.engines.analyzers.intent import IntentDetector
 from prosales.engines.analyzers.language import LanguageDetector
 from prosales.engines.analyzers.orchestrator import AnalyzerOrchestrator
 from prosales.engines.analyzers.sentiment import SentimentDetector
 from prosales.engines.analyzers.stage import ConversationStageDetector
+from prosales.engines.analyzers.unified import UnifiedAnalyzer
 from prosales.engines.analyzers.urgency import UrgencyDetector
 from prosales.engines.context_builder.engine import ContextBuilderEngine
 from prosales.engines.conversation_manager.engine import ConversationManager
@@ -84,14 +86,28 @@ def build_cognitive_graph(
     if memory_engine is None:
         memory_engine = MemoryEngine(session_factory, use_episodic=use_episodic)
     context_engine = ContextBuilderEngine()
-    analyzer_orchestrator = AnalyzerOrchestrator(
-        intent=IntentDetector(analyzer_llm, analyzer_model),
-        sentiment=SentimentDetector(analyzer_llm, analyzer_model),
-        language=LanguageDetector(),
-        urgency=UrgencyDetector(),
-        stage=ConversationStageDetector(analyzer_llm, analyzer_model),
-        contact_signals=ContactSignalDetector(analyzer_llm, analyzer_model),
-    )
+    if settings.use_unified_analyzer:
+        # Fase 4.2: one LLM call instead of 4 parallel ones for intent/
+        # sentiment/stage/contact_signals. Individual detectors are still
+        # constructed for language/urgency's sake but intent/sentiment/stage/
+        # contact_signals go unused in this branch — harmless, they're cheap
+        # to instantiate (no LLM call happens until .detect() is awaited).
+        analyzer_orchestrator = AnalyzerOrchestrator(
+            intent=IntentDetector(analyzer_llm, analyzer_model),
+            sentiment=SentimentDetector(analyzer_llm, analyzer_model),
+            language=LanguageDetector(),
+            urgency=UrgencyDetector(),
+            unified=UnifiedAnalyzer(analyzer_llm, analyzer_model),
+        )
+    else:
+        analyzer_orchestrator = AnalyzerOrchestrator(
+            intent=IntentDetector(analyzer_llm, analyzer_model),
+            sentiment=SentimentDetector(analyzer_llm, analyzer_model),
+            language=LanguageDetector(),
+            urgency=UrgencyDetector(),
+            stage=ConversationStageDetector(analyzer_llm, analyzer_model),
+            contact_signals=ContactSignalDetector(analyzer_llm, analyzer_model),
+        )
     conversation_manager = ConversationManager()
     identity_engine = IdentityEngine(identity_provider=identity_provider)
     if knowledge_engine is None:

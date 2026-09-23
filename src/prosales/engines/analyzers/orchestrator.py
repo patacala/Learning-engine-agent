@@ -9,13 +9,23 @@ from prosales.engines.analyzers.intent import IntentDetector
 from prosales.engines.analyzers.language import LanguageDetector
 from prosales.engines.analyzers.sentiment import SentimentDetector
 from prosales.engines.analyzers.stage import ConversationStageDetector
+from prosales.engines.analyzers.unified import UnifiedAnalyzer
 from prosales.engines.analyzers.urgency import UrgencyDetector
 
 logger = logging.getLogger(__name__)
 
 
 class AnalyzerOrchestrator(BaseEngine):
-    """Runs all detectors in parallel and aggregates results."""
+    """Runs all detectors in parallel and aggregates results.
+
+    ``unified``, when given, replaces the 4 separate intent/sentiment/stage/
+    contact_signals LLM calls with a single ``UnifiedAnalyzer`` call (Fase
+    4.2) — ``language``/``urgency`` are rule-based and always run standalone
+    regardless. When ``unified`` is None, behavior is identical to before
+    (4 independent calls) — kept so the individual detectors/their tests stay
+    valid and this is trivially reversible via ``settings.use_unified_analyzer``
+    (see pipeline/graph.py).
+    """
 
     def __init__(
         self,
@@ -25,6 +35,7 @@ class AnalyzerOrchestrator(BaseEngine):
         urgency: UrgencyDetector | None = None,
         stage: ConversationStageDetector | None = None,
         contact_signals: ContactSignalDetector | None = None,
+        unified: UnifiedAnalyzer | None = None,
     ):
         self.intent = intent
         self.sentiment = sentiment
@@ -32,12 +43,36 @@ class AnalyzerOrchestrator(BaseEngine):
         self.urgency = urgency or UrgencyDetector()
         self.stage = stage
         self.contact_signals = contact_signals
+        self.unified = unified
 
     async def process(self, state: dict[str, Any]) -> dict[str, Any]:
         text = state["current_message"]
         context = {}
         if state.get("context"):
             context["recent_messages"] = state["context"].recent_messages
+
+        analysis = AnalysisResult()
+
+        if self.unified:
+            unified_task = self.unified.detect(text, context)
+            language_result, urgency_result, unified_result = await asyncio.gather(
+                self.language.detect(text, context),
+                self.urgency.detect(text, context),
+                unified_task,
+                return_exceptions=True,
+            )
+            if isinstance(unified_result, Exception):
+                logger.error("UnifiedAnalyzer failed: %s", unified_result)
+            else:
+                analysis.intent, analysis.sentiment, analysis.stage, analysis.contact_signals = unified_result
+
+            for name, result in (("language", language_result), ("urgency", urgency_result)):
+                if isinstance(result, Exception):
+                    logger.error("Detector %s failed: %s", name, result)
+                    continue
+                setattr(analysis, name, result)
+
+            return {"analysis": analysis}
 
         # Run all detectors in parallel
         tasks = [
@@ -54,8 +89,6 @@ class AnalyzerOrchestrator(BaseEngine):
             tasks.append(self.contact_signals.detect(text, context))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        analysis = AnalysisResult()
 
         # Map results by position
         detectors = ["intent", "sentiment", "language", "urgency"]

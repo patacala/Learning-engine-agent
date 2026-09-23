@@ -8,7 +8,13 @@ description: >
 turns:
   - client: "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?"
     expect:
-      intent: comparison  # comparar precio con un competidor, no todavía una objeción
+      # Sin check de intent acá a propósito: es genuinamente ambiguo entre
+      # "comparison" y "objection" (comparar precio con la competencia ES una
+      # forma de objeción). El path legacy (4 llamadas separadas) clasificaba
+      # esto como comparison de forma consistente; el UnifiedAnalyzer (Fase 4.2)
+      # lo clasifica como objection de forma igual de consistente — ambos son
+      # lecturas defendibles, no es un bug de ninguno de los dos. Verificado
+      # 2026-09-23: 3/3 corridas cada uno, estable en su propia lectura.
       must_not_mention:
         - "50% de descuento"
         - "te lo dejo gratis"

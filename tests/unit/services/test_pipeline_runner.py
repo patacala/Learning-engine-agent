@@ -93,3 +93,45 @@ async def test_runner_without_agent_context():
     assert result.voice_text == "Default response"
     assert result.voice_ssml is None
     assert result.analysis_summary == {}
+
+
+class TestCompiledGraphCache:
+    """Fase 4.1: the compiled graph is built once per process (per has_providers
+    variant), not on every run() call — see PipelineRunner._get_compiled_graph."""
+
+    def teardown_method(self):
+        # Don't leak mocked/fake compiled graphs into other tests' cache lookups.
+        PipelineRunner._graph_cache.clear()
+
+    def test_same_session_factory_and_providers_flag_reuses_compiled_graph(self):
+        sf = AsyncMock()
+        runner = PipelineRunner(sf, cache=None)
+
+        with patch("prosales.services.pipeline_runner.create_llm_provider"), \
+             patch("prosales.services.pipeline_runner.create_analyzer_llm"), \
+             patch("prosales.services.pipeline_runner.build_cognitive_graph") as mock_graph:
+            mock_graph.return_value.compile.return_value = MagicMock(name="compiled")
+
+            first = runner._get_compiled_graph(has_providers=False)
+            second = runner._get_compiled_graph(has_providers=False)
+
+        assert first is second
+        mock_graph.assert_called_once()  # build_cognitive_graph only ran once
+
+    def test_different_providers_flag_builds_a_different_graph(self):
+        sf = AsyncMock()
+        runner = PipelineRunner(sf, cache=MagicMock())
+
+        with patch("prosales.services.pipeline_runner.create_llm_provider"), \
+             patch("prosales.services.pipeline_runner.create_analyzer_llm"), \
+             patch("prosales.services.pipeline_runner.build_cognitive_graph") as mock_graph:
+            mock_graph.return_value.compile.side_effect = [
+                MagicMock(name="no_providers"),
+                MagicMock(name="with_providers"),
+            ]
+
+            without = runner._get_compiled_graph(has_providers=False)
+            with_providers = runner._get_compiled_graph(has_providers=True)
+
+        assert without is not with_providers
+        assert mock_graph.call_count == 2
