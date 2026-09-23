@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 
-from prosales.api.v1.dependencies import get_agent_context, get_redis_cache
+from prosales.api.v1.dependencies import get_redis_cache, require_agent_context
 from prosales.api.v1.schemas.conversation import MessageRequest, MessageResponse
 from prosales.infrastructure.database.connection import async_session_factory
 from prosales.infrastructure.database.models import ConversationModel
@@ -37,8 +37,8 @@ async def process_message(
     # --- Short setup session: resolve context + get-or-create client/conversation.
     async with async_session_factory() as session:
         async with session.begin():
-            agent_context = await get_agent_context(session, x_api_key)
-            organization_id = agent_context.organization_id if agent_context else None
+            agent_context = await require_agent_context(session, x_api_key)
+            organization_id = agent_context.organization_id
 
             conversation_repo = SQLConversationRepository(session)
             client_repo = SQLClientRepository(session)
@@ -56,7 +56,7 @@ async def process_message(
                     id=uuid4(),
                     client_id=client.id,
                     organization_id=organization_id,
-                    agent_version_id=agent_context.agent_version_id if agent_context else None,
+                    agent_version_id=agent_context.agent_version_id,
                 )
                 await conversation_repo.save(conversation)
 

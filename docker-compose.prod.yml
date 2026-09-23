@@ -61,6 +61,8 @@ services:
       RETELL_API_KEY: ${RETELL_API_KEY:-}
       CRM_WEBHOOK_URL: ${CRM_WEBHOOK_URL:-}
       PROVISIONING_SECRET: ${PROVISIONING_SECRET:-}
+      # Internal endpoints fail closed in production when unset.
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     expose:
       - "8000"
     depends_on:
@@ -116,6 +118,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Baked into the static bundle at build time; must match INTERNAL_API_TOKEN.
+        VITE_INTERNAL_TOKEN: ${INTERNAL_API_TOKEN:-}
     restart: unless-stopped
     # Public service. Coolify maps the domain to this exposed port (do NOT publish
     # host port 80 — it collides with Coolify's own proxy).

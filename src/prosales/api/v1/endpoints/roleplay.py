@@ -9,10 +9,10 @@ import logging
 import traceback
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header
 from fastapi.responses import StreamingResponse
 
-from prosales.api.v1.dependencies import get_agent_context, get_redis_cache
+from prosales.api.v1.dependencies import get_agent_context, get_redis_cache, verify_internal_or_api_key
 from prosales.api.v1.endpoints._sse import _sse_event
 from prosales.api.v1.schemas.roleplay import (
     EndRoleplayRequest,
@@ -48,7 +48,7 @@ from prosales.services.live_learning import run_live_learning
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/roleplay", tags=["roleplay"])
+router = APIRouter(prefix="/roleplay", tags=["roleplay"], dependencies=[Depends(verify_internal_or_api_key)])
 
 
 async def _resolve_context(x_api_key: str | None):

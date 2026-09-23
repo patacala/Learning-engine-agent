@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prosales.api.v1.dependencies import get_agent_context, get_db_session
+from prosales.api.v1.dependencies import get_db_session, require_agent_context
 from prosales.engines.contact_qualification.models import ContactQualification
 from prosales.infrastructure.database.models import ClientModel
 from prosales.infrastructure.database.repositories.contact_qualification import (
@@ -21,12 +21,13 @@ async def get_contact_qualification(
     x_api_key: str | None = Header(None),
 ) -> dict:
     """Current qualification of a contact (by the CRM's external id), org-scoped."""
-    agent_context = await get_agent_context(session, x_api_key)
-    org_id = agent_context.organization_id if agent_context else None
+    agent_context = await require_agent_context(session, x_api_key)
+    org_id = agent_context.organization_id
 
-    stmt = select(ClientModel).where(ClientModel.external_id == external_id)
-    if org_id is not None:
-        stmt = stmt.where(ClientModel.organization_id == org_id)
+    stmt = select(ClientModel).where(
+        ClientModel.external_id == external_id,
+        ClientModel.organization_id == org_id,
+    )
     client = (await session.execute(stmt)).scalar_one_or_none()
     if client is None:
         raise HTTPException(status_code=404, detail="Contact not found")

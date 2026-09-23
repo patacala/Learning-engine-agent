@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     # Provisioning
     provisioning_secret: str = ""
 
+    # Internal API token — required by internal/training endpoints (learning,
+    # testing, agents, timeline, roleplay, assistant, episode). Enforced always
+    # when set; when unset, requests are only allowed in development.
+    internal_api_token: str = ""
+
     # Observability
     pipeline_version: str = "1.0.0"
     prompt_version: str = "response_v1"

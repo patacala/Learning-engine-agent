@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from prosales.api.v1.dependencies import get_db_session
+from prosales.api.v1.dependencies import get_db_session, verify_internal_token
 from prosales.infrastructure.database.models import KnowledgeDocumentModel
 from prosales.infrastructure.database.models_agent import (
     AgentIdentityModel,
@@ -22,7 +22,7 @@ from prosales.infrastructure.database.repositories.insights import SQLInsightsRe
 from prosales.infrastructure.database.repositories.performance import SQLPerformanceRepository
 from prosales.infrastructure.database.repositories.style import SQLStyleRepository
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(prefix="/agents", tags=["agents"], dependencies=[Depends(verify_internal_token)])
 
 # Maps a learned move_kind to the Knowledge Areas widget bucket it belongs to
 # (frontend/src/constants/categories.ts CATEGORY_ORDER). Distinct from

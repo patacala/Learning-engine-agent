@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prosales.api.v1.dependencies import get_db_session
+from prosales.api.v1.dependencies import get_db_session, verify_internal_or_api_key
 from prosales.core.models.events import EpisodeExtracted
 from prosales.engines.episodic.engine import EpisodicMemoryEngine
 from prosales.engines.episodic.extractor import EpisodeExtractor
@@ -21,7 +21,7 @@ from prosales.services.live_learning import run_live_learning
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/conversation", tags=["episode"])
+router = APIRouter(prefix="/conversation", tags=["episode"], dependencies=[Depends(verify_internal_or_api_key)])
 
 
 async def _capture_dna(session, conversation_id, organization_id) -> None:

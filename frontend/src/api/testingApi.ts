@@ -4,11 +4,12 @@ import type {
   TestMessageResponse,
   TestTurn,
 } from '../types/testing';
+import { apiFetch } from './http';
 
 const BASE = '/api/v1';
 
 export async function listScenarios(agentVersionId: string): Promise<Scenario[]> {
-  const res = await fetch(`${BASE}/testing/scenarios?agent_version_id=${agentVersionId}`);
+  const res = await apiFetch(`${BASE}/testing/scenarios?agent_version_id=${agentVersionId}`);
   if (!res.ok) throw new Error('Failed to fetch scenarios');
   return res.json();
 }
@@ -20,7 +21,7 @@ export async function createScenario(payload: {
   documents: TemporaryDocument[];
   quick_facts: Record<string, string>;
 }): Promise<Scenario> {
-  const res = await fetch(`${BASE}/testing/scenarios`, {
+  const res = await apiFetch(`${BASE}/testing/scenarios`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -39,7 +40,7 @@ export async function updateScenario(
     quick_facts: Record<string, string>;
   },
 ): Promise<Scenario> {
-  const res = await fetch(`${BASE}/testing/scenarios/${scenarioId}`, {
+  const res = await apiFetch(`${BASE}/testing/scenarios/${scenarioId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -49,7 +50,7 @@ export async function updateScenario(
 }
 
 export async function deleteScenario(scenarioId: string): Promise<void> {
-  const res = await fetch(`${BASE}/testing/scenarios/${scenarioId}`, { method: 'DELETE' });
+  const res = await apiFetch(`${BASE}/testing/scenarios/${scenarioId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete scenario');
 }
 
@@ -63,7 +64,7 @@ export async function sendTestMessage(
     quick_facts: Record<string, string>;
   },
 ): Promise<TestMessageResponse> {
-  const res = await fetch(`${BASE}/agents/${agentVersionId}/test-conversation`, {
+  const res = await apiFetch(`${BASE}/agents/${agentVersionId}/test-conversation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -77,7 +78,7 @@ export async function handoffToTraining(payload: {
   source_label: string;
   transcript: string;
 }): Promise<{ session_id: string; status: string }> {
-  const res = await fetch(`${BASE}/testing/handoff`, {
+  const res = await apiFetch(`${BASE}/testing/handoff`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

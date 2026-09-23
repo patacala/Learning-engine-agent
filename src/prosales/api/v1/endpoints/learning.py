@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prosales.api.v1.dependencies import get_db_session
+from prosales.api.v1.dependencies import get_db_session, verify_internal_token
 from prosales.api.v1.endpoints._sse import _sse_event
 from prosales.config import settings
 from prosales.di.container import create_llm_provider
@@ -36,7 +36,7 @@ from prosales.services.transcription import AudioTranscriber
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/learning", tags=["learning"])
+router = APIRouter(prefix="/learning", tags=["learning"], dependencies=[Depends(verify_internal_token)])
 
 
 class MoveUpdate(BaseModel):

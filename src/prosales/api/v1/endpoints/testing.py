@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prosales.api.v1.dependencies import get_db_session, get_redis_cache
+from prosales.api.v1.dependencies import get_db_session, get_redis_cache, verify_internal_token
 from prosales.api.v1.schemas.testing import (
     HandoffRequest,
     HandoffResponse,
@@ -58,7 +58,7 @@ from prosales.pipeline.state import CognitivePipelineState  # noqa: F401 (typing
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["testing"])
+router = APIRouter(tags=["testing"], dependencies=[Depends(verify_internal_token)])
 
 
 # --------------------------------------------------------------------------- #

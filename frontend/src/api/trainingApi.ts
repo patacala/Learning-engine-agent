@@ -1,28 +1,29 @@
 // API layer for the single "Learn" flow. Backed by /learning/* endpoints;
 // moves are surfaced as approvable "proposals" so the shell UI is reused.
 import type { Agent, AgentBrain, TrainingSession, TrainingProposal, TrainingResult, SSEEvent } from '../types/training';
+import { apiFetch } from './http';
 
 const BASE = '/api/v1';
 
 export async function listAgents(): Promise<Agent[]> {
-  const res = await fetch(`${BASE}/agents`);
+  const res = await apiFetch(`${BASE}/agents`);
   if (!res.ok) throw new Error('Failed to fetch agents');
   return res.json();
 }
 
 export async function listSessions(agentVersionId: string): Promise<TrainingSession[]> {
-  const res = await fetch(`${BASE}/learning/sessions?agent_version_id=${agentVersionId}`);
+  const res = await apiFetch(`${BASE}/learning/sessions?agent_version_id=${agentVersionId}`);
   if (!res.ok) throw new Error('Failed to fetch sessions');
   return res.json();
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  const res = await fetch(`${BASE}/learning/sessions/${sessionId}`, { method: 'DELETE' });
+  const res = await apiFetch(`${BASE}/learning/sessions/${sessionId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete session');
 }
 
 export async function listProposals(sessionId: string): Promise<TrainingProposal[]> {
-  const res = await fetch(`${BASE}/learning/sessions/${sessionId}`);
+  const res = await apiFetch(`${BASE}/learning/sessions/${sessionId}`);
   if (!res.ok) throw new Error('Failed to fetch session');
   const data = await res.json();
   return data.proposals ?? [];
@@ -34,7 +35,7 @@ export async function updateProposal(
   _edits?: { content?: string; title?: string },
 ): Promise<Partial<TrainingProposal>> {
   // Moves are verbatim evidence — edits are ignored; only status changes.
-  const res = await fetch(`${BASE}/learning/moves/${proposalId}`, {
+  const res = await apiFetch(`${BASE}/learning/moves/${proposalId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
@@ -48,7 +49,7 @@ export async function batchUpdateProposals(
   proposalIds: string[],
   status: 'approved' | 'rejected',
 ): Promise<Array<{ id: string; status: string }>> {
-  const res = await fetch(`${BASE}/learning/moves/batch`, {
+  const res = await apiFetch(`${BASE}/learning/moves/batch`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ move_ids: proposalIds, status }),
@@ -59,7 +60,7 @@ export async function batchUpdateProposals(
 }
 
 export async function extractSession(sessionId: string): Promise<TrainingResult> {
-  const res = await fetch(`${BASE}/learning/sessions/${sessionId}/extract`, {
+  const res = await apiFetch(`${BASE}/learning/sessions/${sessionId}/extract`, {
     method: 'POST',
   });
   if (!res.ok) throw new Error('Failed to process draft session');
@@ -67,7 +68,7 @@ export async function extractSession(sessionId: string): Promise<TrainingResult>
 }
 
 export async function getAgentBrain(agentVersionId: string): Promise<AgentBrain> {
-  const res = await fetch(`${BASE}/agents/${agentVersionId}/brain`);
+  const res = await apiFetch(`${BASE}/agents/${agentVersionId}/brain`);
   if (!res.ok) throw new Error('Failed to fetch agent brain');
   return res.json();
 }
@@ -92,7 +93,7 @@ export interface StrategyCatalog {
 }
 
 export async function getStrategyCatalog(agentVersionId: string): Promise<StrategyCatalog> {
-  const res = await fetch(`${BASE}/agents/${agentVersionId}/strategy-catalog`);
+  const res = await apiFetch(`${BASE}/agents/${agentVersionId}/strategy-catalog`);
   if (!res.ok) throw new Error('Failed to fetch strategy catalog');
   return res.json();
 }
@@ -117,7 +118,7 @@ export async function ingestTranscript(
 
   let res: Response;
   try {
-    res = await fetch(`${BASE}/learning/ingest`, {
+    res = await apiFetch(`${BASE}/learning/ingest`, {
       method: 'POST',
       body: form,
       signal,

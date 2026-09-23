@@ -6,13 +6,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prosales.api.v1.dependencies import get_db_session
+from prosales.api.v1.dependencies import get_db_session, verify_internal_token
 from prosales.api.v1.schemas.timeline import TimelineEntry, TimelineResponse
 from prosales.infrastructure.database.repositories.event import SQLEventRepository
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/conversation", tags=["timeline"])
+router = APIRouter(prefix="/conversation", tags=["timeline"], dependencies=[Depends(verify_internal_token)])
 
 
 def _summarize_event(event_type: str, data: dict) -> str:

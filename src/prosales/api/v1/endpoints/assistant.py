@@ -7,9 +7,9 @@ It does NOT run the sales pipeline and never learns; it just converses.
 import logging
 import traceback
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 
-from prosales.api.v1.dependencies import get_agent_context
+from prosales.api.v1.dependencies import get_agent_context, verify_internal_or_api_key
 from prosales.api.v1.schemas.assistant import (
     AssistantMessageRequest,
     AssistantMessageResponse,
@@ -22,7 +22,7 @@ from prosales.infrastructure.database.connection import async_session_factory
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/assistant", tags=["assistant"])
+router = APIRouter(prefix="/assistant", tags=["assistant"], dependencies=[Depends(verify_internal_or_api_key)])
 
 
 async def _resolve_context(x_api_key: str | None):
