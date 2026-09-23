@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+:root {
+  --text-primary: #0d0d0d;
+  --text-secondary: #6e6e80;
+  --text-muted: #b3b3b3;
+  --border: #e3e3e3;
+  --border-subtle: #f0f0f0;
+  --border-strong: #d4d4d4;
+  --surface: #ffffff;
+  --surface-subtle: #fafafa;
+  --surface-muted: #f4f4f4;
+  --accent: #0d0d0d;
+  --accent-soft: rgba(13, 13, 13, 0.06);
+  --map-bg: #111111;
+  --map-bg-elevated: #1a1a1a;
+  --bar-track: #ececec;
+  --bar-fill: #0d0d0d;
+}
+
+* {
+  font-family: apple-system-body, ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+#root {
+  height: 100vh;
+}
+
+.knowledge-map-panel {
+  background: linear-gradient(180deg, #1a1a1a 0%, #111111 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+.knowledge-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  line-height: 1.3;
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+}
+
+.knowledge-pill--muted {
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.maturity-bar {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--bar-track);
+  overflow: hidden;
+}
+
+.maturity-bar__fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--bar-fill);
+  transition: width 0.45s ease;
+}
+
+.neural-node {
+  animation: neural-pulse 2.8s ease-in-out infinite;
+}
+
+.neural-link {
+  transition: stroke 0.25s ease, stroke-width 0.25s ease;
+}
+
+@keyframes neural-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neural-node {
+    animation: none;
+  }
+
+  .neural-link {
+    transition: none;
+  }
+
+  .maturity-bar__fill {
+    transition: none;
+  }
+}

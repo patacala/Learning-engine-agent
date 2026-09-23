@@ -1,0 +1,18 @@
+# Keep the backend build context small and free of secrets.
+.git
+.venv
+.pytest_cache
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+tests/
+frontend/
+graphify-out/
+memory/
+docker/postgres/
+docker/redis/
+scripts/loadtest_chat.py
+*.md
+.claude/
