@@ -1,0 +1,14 @@
+# Cliente interesado que pide agendar una visita — el agente debe reconocer
+# la intención de agendamiento y avanzar hacia concretar día/hora, no
+# quedarse dando vueltas ni inventar disponibilidad específica.
+name: agendamiento
+description: >
+  Cliente listo para agendar. El agente debe reconocerlo y mover la
+  conversación hacia coordinar día/hora, sin inventar horarios concretos
+  que no le dimos como contexto.
+turns:
+  - client: "Me convenciste, ¿puedo pasar a verlo el sábado?"
+    expect:
+      intent: scheduling
+      must_not_mention:
+        - "sábado a las 3pm confirmado"

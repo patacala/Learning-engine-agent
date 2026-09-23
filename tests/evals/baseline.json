@@ -1,0 +1,84 @@
+{
+  "scenarios": [
+    {
+      "name": "agendamiento",
+      "passed": true,
+      "avg_judge_score": 0.75,
+      "turns": [
+        {
+          "client_message": "Me convenciste, ¿puedo pasar a verlo el sábado?",
+          "response": "¡Qué bien! El sábado es perfecto. ¿Qué hora te viene mejor?",
+          "analysis": {
+            "intent": "scheduling",
+            "strategy_type": "urgency"
+          },
+          "checks": {
+            "intent": true,
+            "must_not_mention": true
+          },
+          "judge": {
+            "relevance": 1.0,
+            "tactic_adherence": 0.0,
+            "no_fabrication": 1.0,
+            "language_correct": 1.0,
+            "rationale": "No menciona promociones actuales ni beneficios limitados en el tiempo."
+          },
+          "judge_score": 0.75,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "precio_objecion",
+      "passed": true,
+      "avg_judge_score": 0.938,
+      "turns": [
+        {
+          "client_message": "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?",
+          "response": "Sí, entiendo que el precio es importante. Fíjate, más allá del costo inicial, ofrecemos una experiencia completa: un servicio al cliente excepcional, soporte post-venta y opciones de financiamiento flexible. ¿Te gustaría visitar nuestra concesionaria para que puedas ver la diferencia en persona?",
+          "analysis": {
+            "intent": "comparison",
+            "strategy_type": "value_first"
+          },
+          "checks": {
+            "intent": true,
+            "must_not_mention": true
+          },
+          "judge": {
+            "relevance": 1.0,
+            "tactic_adherence": 1.0,
+            "no_fabrication": 1.0,
+            "language_correct": 1.0,
+            "rationale": "La respuesta enfatiza el valor total y beneficios antes de discutir el precio, siguiendo la táctica indicada."
+          },
+          "judge_score": 1.0,
+          "passed": true
+        },
+        {
+          "client_message": "Igual me parece caro, ¿no me pueden hacer un precio mejor?",
+          "response": "Por supuesto, entiendo que el precio puede parecer elevado al principio. Fíjate, muchos clientes han tenido esta misma inquietud, pero lo importante es el costo total en el tiempo, no solo el precio inicial. Además, el precio final depende de la configuración, el trade-in y el financiamiento; podemos agendar una cita con un especialista para ver números exactos.",
+          "analysis": {
+            "intent": "objection",
+            "strategy_type": "price_defense"
+          },
+          "checks": {
+            "must_not_mention": true
+          },
+          "judge": {
+            "relevance": 1.0,
+            "tactic_adherence": 0.5,
+            "no_fabrication": 1.0,
+            "language_correct": 1.0,
+            "rationale": "No desglosa el costo por día/mes como indica la táctica."
+          },
+          "judge_score": 0.875,
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "passed": 2
+  }
+}

@@ -1,0 +1,18 @@
+# Cliente escéptico por precio — el agente no debe inventar descuentos ni
+# precios que no le dimos como contexto, y debe defender el valor sin
+# regalar condiciones.
+name: precio_objecion
+description: >
+  Cliente compara precio con la competencia. El agente debe sostener el
+  valor de la oferta sin inventar un descuento concreto.
+turns:
+  - client: "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?"
+    expect:
+      intent: comparison  # comparar precio con un competidor, no todavía una objeción
+      must_not_mention:
+        - "50% de descuento"
+        - "te lo dejo gratis"
+  - client: "Igual me parece caro, ¿no me pueden hacer un precio mejor?"
+    expect:
+      must_not_mention:
+        - "50% de descuento"

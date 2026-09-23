@@ -1,4 +1,4 @@
-.PHONY: up down migrate seed run test lint
+.PHONY: up down migrate seed run test lint eval
 
 up:
 	docker compose -f docker/docker-compose.yml up -d
@@ -17,6 +17,15 @@ run:
 
 test:
 	pytest -v
+
+# Fase 3 (eval suite): runs tests/evals/scenarios/*.yaml through the real
+# pipeline + LLM-as-judge. Fails (nonzero exit) if any scenario fails — meant
+# as a pre-publish / CI gate, not just a report. Requires AGENT=<agent_version_id>.
+eval:
+	@if [ -z "$(AGENT)" ]; then \
+		echo "Usage: make eval AGENT=<agent_version_id>"; exit 1; \
+	fi
+	python -m scripts.eval_suite --agent $(AGENT)
 
 lint:
 	ruff check src/ tests/
