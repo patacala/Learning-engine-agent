@@ -1,8 +1,13 @@
 """Learn from a live conversation once Cognition marks it terminal.
 
 Runs in the background (never blocks a reply). Extracts moves + DNA from the
-conversation, scores them by the Cognition-inferred outcome (+ derived
-appointment/purchase signals), auto-approves and clusters them, and feeds RAG.
+conversation and scores them by the Cognition-inferred outcome (+ derived
+appointment/purchase signals). Moves are left `pending` — Cognition's inferred
+outcome alone is not verified ground truth (e.g. a client asking "can we meet
+Saturday?" reads as "scheduled" even if no appointment is ever confirmed), so
+nothing reaches the approved/RAG-retrievable pool automatically. A move only
+becomes retrievable when a human approves it in the training UI, or later,
+when a verified CRM outcome triggers approval (see api/v1/endpoints/episode.py).
 Winning expressions are captured only when the outcome was positive (scheduled).
 """
 
@@ -21,7 +26,7 @@ from prosales.infrastructure.database.models import ConversationModel
 from prosales.infrastructure.database.repositories.evidence import SQLEvidenceRepository
 from prosales.infrastructure.database.repositories.moves import SQLMovesRepository
 from prosales.infrastructure.vector_store.pgvector import PGVectorStore
-from prosales.services.learning_pipeline import LearningPipeline, MoveApprover
+from prosales.services.learning_pipeline import LearningPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +51,7 @@ def outcome_signals(outcome: str) -> tuple[bool, bool]:
 
 
 async def run_live_learning(conversation_id: UUID) -> None:
-    """Idempotent: extracts + clusters moves for a terminal conversation once."""
+    """Idempotent: extracts + scores pending moves for a terminal conversation once."""
     try:
         async with _bg_semaphore:  # bound concurrency vs the DB pool / OpenAI
           async with async_session_factory() as db:
@@ -86,11 +91,13 @@ async def run_live_learning(conversation_id: UUID) -> None:
                 positive = outcome == "scheduled"
                 await pipeline.ingest_source(source, extract_expressions=positive)
 
-                # Re-score moves with multi-signal, then auto-approve + cluster + RAG.
+                # Re-score moves with multi-signal so a reviewer (human or, once
+                # wired, CRM-triggered approval) sees an informed score. Moves stay
+                # `pending`: Cognition's inferred outcome is not verified ground
+                # truth, so nothing is approved/clustered/fed to RAG here.
                 appointment, purchase = outcome_signals(outcome)
                 scorer = OutcomeScorer()
                 moves_repo = SQLMovesRepository(db)
-                approver = MoveApprover(db, vector_store=vector_store)
                 moves = await moves_repo.list_by_source(source.id)
                 for m in moves:
                     new_score = scorer.score(
@@ -101,9 +108,6 @@ async def run_live_learning(conversation_id: UUID) -> None:
                         purchase=purchase,
                     ).score
                     await moves_repo.set_score(m.id, new_score)
-                await db.flush()
-                for m in moves:
-                    await approver.approve(m.id)
 
                 conv.learned_at = datetime.utcnow()
         logger.info("live learning complete for conversation %s (outcome=%s)", conversation_id, outcome)
