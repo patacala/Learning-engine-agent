@@ -4,7 +4,6 @@ Organization templates define the business context (industry, capabilities).
 Agent templates define professional behavior by agent_type (sales, support, receptionist).
 """
 
-import secrets
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +21,7 @@ from prosales.infrastructure.database.models_agent import (
     OrganizationAgentModel,
     OrganizationModel,
 )
+from prosales.infrastructure.security.api_keys import api_key_prefix, generate_api_key, hash_api_key
 
 # --- Organization capability presets ---
 # Organizations are lightweight tenants. Business details live in the CRM.
@@ -284,12 +284,6 @@ AGENT_TEMPLATES: dict[str, dict] = {
 }
 
 
-def _generate_api_key(slug: str) -> str:
-    """Generate a random API key for an organization."""
-    random_part = secrets.token_hex(12)
-    return f"sk-{slug}-{random_part}"
-
-
 async def create_organization(
     session: AsyncSession,
     name: str,
@@ -301,16 +295,17 @@ async def create_organization(
     capabilities = ORG_CAPABILITY_PRESETS.get(capabilities_preset, ORG_CAPABILITY_PRESETS["full"])
 
     if not api_key:
-        api_key = _generate_api_key(slug)
+        api_key = generate_api_key(slug)
 
     org = OrganizationModel(
         id=uuid.uuid4(),
         name=name,
         slug=slug,
-        api_key=api_key,
-        api_key_prefix=api_key[:8],
+        api_key_hash=hash_api_key(api_key),
+        api_key_prefix=api_key_prefix(api_key),
         capabilities=capabilities,
     )
+    org._plain_api_key = api_key  # transient: returned once by provisioning/bootstrap
     session.add(org)
     await session.flush()
     return org

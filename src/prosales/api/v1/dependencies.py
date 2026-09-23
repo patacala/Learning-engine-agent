@@ -12,6 +12,7 @@ from prosales.infrastructure.cache.redis import RedisCache
 from prosales.infrastructure.database.connection import async_session_factory
 from prosales.infrastructure.agent.resolver import AgentContextResolver
 from prosales.infrastructure.database.models_agent import OrganizationModel
+from prosales.infrastructure.security.api_keys import api_key_prefix, hash_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +106,8 @@ async def verify_internal_or_api_key(
     if x_api_key:
         async with async_session_factory() as session:
             stmt = select(OrganizationModel.id).where(
-                OrganizationModel.api_key_prefix == x_api_key[:8],
-                OrganizationModel.api_key == x_api_key,
+                OrganizationModel.api_key_prefix == api_key_prefix(x_api_key),
+                OrganizationModel.api_key_hash == hash_api_key(x_api_key),
                 OrganizationModel.is_active.is_(True),
             )
             if (await session.execute(stmt)).scalar_one_or_none() is not None:
@@ -132,10 +133,11 @@ async def get_authenticated_org(
     if not token:
         raise HTTPException(status_code=401, detail="Missing API key")
 
-    prefix = token[:8]
+    prefix = api_key_prefix(token)
+    key_hash = hash_api_key(token)
     stmt = select(OrganizationModel).where(
         OrganizationModel.api_key_prefix == prefix,
-        OrganizationModel.api_key == token,
+        OrganizationModel.api_key_hash == key_hash,
         OrganizationModel.is_active.is_(True),
     )
     result = await session.execute(stmt)
@@ -143,4 +145,5 @@ async def get_authenticated_org(
 
     if org is None:
         raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+    org._auth_api_key = token  # transient: used for cache invalidation only
     return org

@@ -3,19 +3,17 @@
 Protected by PROVISIONING_SECRET. Only 2 endpoints — minimal surface.
 """
 
-import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from prosales.api.v1.dependencies import get_db_session, get_redis_cache, verify_provisioning_secret
+from prosales.api.v1.dependencies import get_db_session, verify_provisioning_secret
 from prosales.api.v1.schemas.management import OrganizationResponse, ProvisionOrganizationRequest
-from prosales.infrastructure.agent.resolver import invalidate_agent_context
 from prosales.infrastructure.agent.templates import ORG_CAPABILITY_PRESETS, create_organization
-from prosales.infrastructure.cache.redis import RedisCache
 from prosales.infrastructure.database.models_agent import OrganizationModel
+from prosales.infrastructure.security.api_keys import api_key_prefix, generate_api_key, hash_api_key
 
 router = APIRouter(
     prefix="/provisioning",
@@ -24,12 +22,12 @@ router = APIRouter(
 )
 
 
-def _org_response(org: OrganizationModel) -> OrganizationResponse:
+def _org_response(org: OrganizationModel, api_key: str | None = None) -> OrganizationResponse:
     return OrganizationResponse(
         id=org.id,
         name=org.name,
         slug=org.slug,
-        api_key=org.api_key,
+        api_key=api_key,
         capabilities=org.capabilities or [],
         is_active=org.is_active,
     )
@@ -56,23 +54,23 @@ async def provision_organization(
         return _org_response(existing)
 
     # Create
+    clear_api_key = body.api_key or generate_api_key(slug)
     org = await create_organization(
         session,
         name=body.name,
         slug=slug,
-        api_key=body.api_key,
+        api_key=clear_api_key,
         capabilities_preset=body.capabilities_preset,
     )
-    return _org_response(org)
+    return _org_response(org, api_key=clear_api_key)
 
 
 @router.post("/organizations/{org_id}/regenerate-key")
 async def regenerate_api_key(
     org_id: str,
     session: AsyncSession = Depends(get_db_session),
-    cache: RedisCache = Depends(get_redis_cache),
 ) -> OrganizationResponse:
-    """Regenerate API key for an organization and invalidate cache."""
+    """Regenerate API key for an organization."""
     from uuid import UUID
 
     stmt = select(OrganizationModel).where(OrganizationModel.id == UUID(org_id))
@@ -82,14 +80,10 @@ async def regenerate_api_key(
     if org is None:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    old_key = org.api_key
-    new_key = f"sk-{org.slug}-{secrets.token_hex(12)}"
-    org.api_key = new_key
-    org.api_key_prefix = new_key[:8]
+    new_key = generate_api_key(org.slug)
+    org.api_key_hash = hash_api_key(new_key)
+    org.api_key_prefix = api_key_prefix(new_key)
     org.updated_at = datetime.now(timezone.utc)
     await session.flush()
 
-    # Invalidate old key cache
-    await invalidate_agent_context(cache, old_key)
-
-    return _org_response(org)
+    return _org_response(org, api_key=new_key)

@@ -14,6 +14,7 @@ from prosales.infrastructure.database.models_agent import (
     OrganizationAgentModel,
     OrganizationModel,
 )
+from prosales.infrastructure.security.api_keys import api_key_prefix, hash_api_key
 
 # Note: OrganizationModel is a lightweight tenant (name, api_key, capabilities).
 # Business context (industry, products, etc.) comes from the CRM at request time.
@@ -150,20 +151,34 @@ class AgentContextResolver:
         return f"agent_ctx:apikey:{digest}"
 
     async def resolve(self, api_key: str) -> AgentContext | None:
+        prefix = api_key_prefix(api_key)
+        key_hash = hash_api_key(api_key)
         # 1. Cache check
         if self.cache:
             cache_key = self._cache_key(api_key)
             cached = await self.cache.get(cache_key)
             if cached:
+                # API keys are rotated without storing plaintext old keys. A
+                # cached context must still prove the presented key hash exists.
+                still_valid = (
+                    await self.session.execute(
+                        select(OrganizationModel.id).where(
+                            OrganizationModel.api_key_prefix == prefix,
+                            OrganizationModel.api_key_hash == key_hash,
+                            OrganizationModel.is_active.is_(True),
+                        )
+                    )
+                ).scalar_one_or_none()
+                if still_valid is None:
+                    return None
                 return AgentContext(**cached)
 
         # 2. Find organization by API key
-        prefix = api_key[:8]
         stmt = (
             select(OrganizationModel)
             .where(
                 OrganizationModel.api_key_prefix == prefix,
-                OrganizationModel.api_key == api_key,
+                OrganizationModel.api_key_hash == key_hash,
                 OrganizationModel.is_active.is_(True),
             )
         )

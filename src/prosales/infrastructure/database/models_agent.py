@@ -18,7 +18,7 @@ class OrganizationModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    api_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    api_key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     api_key_prefix: Mapped[str] = mapped_column(String(8), nullable=False)
     capabilities: Mapped[list] = mapped_column(JSONB, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

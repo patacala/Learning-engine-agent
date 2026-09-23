@@ -17,7 +17,9 @@ class OrganizationResponse(BaseModel):
     id: UUID
     name: str
     slug: str
-    api_key: str
+    # Returned only on create/regenerate. Existing org responses never expose
+    # plaintext API keys because only hashes are stored at rest.
+    api_key: str | None = None
     capabilities: list[str] = Field(default_factory=list)
     is_active: bool = True
 

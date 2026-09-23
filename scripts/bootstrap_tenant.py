@@ -8,10 +8,10 @@ A fresh DB has no organization/agent, so the pipeline can't resolve an
   3. Primary org<->agent assignment               -> assign_agent_to_org
   4. Strategy catalog top-up (full 30-catalog)     -> seed_strategies
 
-It then prints the org's API key — the ``X-API-Key`` the CRM/clients use.
+It then prints the org's API key when a key is created/provided.
 
 Idempotency: reuses the org by slug; if the org already has a primary active
-agent, it skips creation and just prints the existing key. Re-running only fills
+agent, it skips creation; existing plaintext keys are not recoverable. Re-running only fills
 gaps.
 
 Usage (local):
@@ -109,7 +109,7 @@ async def _bootstrap(
     return {
         "org_id": str(org.id),
         "slug": org.slug,
-        "api_key": org.api_key,
+        "api_key": getattr(org, "_plain_api_key", api_key if created_org and api_key else None),
         "capabilities": org.capabilities or [],
         "created_org": created_org,
         "created_agent": created_agent,
@@ -142,8 +142,12 @@ async def _run(args: argparse.Namespace) -> None:
         t = result["strategy_topup"]
         print(f"  Strategies   : +{t['added']} added, {t['skipped']} already present "
               f"({t['versions']} version(s))")
-    print("\n  >>> API KEY (use as X-API-Key header):")
-    print(f"      {result['api_key']}\n")
+    if result["api_key"]:
+        print("\n  >>> API KEY (use as X-API-Key header):")
+        print(f"      {result['api_key']}\n")
+    else:
+        print("\n  >>> API KEY: existing org reused; plaintext key is not stored.")
+        print("      Regenerate it via /api/v1/provisioning/organizations/{org_id}/regenerate-key if needed.\n")
 
 
 def main() -> None:

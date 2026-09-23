@@ -23,6 +23,7 @@ from prosales.infrastructure.database.models_agent import (
     OrganizationAgentModel,
     OrganizationModel,
 )
+from prosales.infrastructure.security.api_keys import hash_api_key
 
 app = FastAPI()
 app.include_router(provisioning_router, prefix="/api/v1")
@@ -45,8 +46,9 @@ def _mock_org(org_id=None, name="Test Org", slug="test-org"):
     org.id = org_id or uuid.uuid4()
     org.name = name
     org.slug = slug
-    org.api_key = ORG_API_KEY
+    org.api_key_hash = hash_api_key(ORG_API_KEY)
     org.api_key_prefix = ORG_API_KEY[:8]
+    org._auth_api_key = ORG_API_KEY  # set by get_authenticated_org at runtime
     org.capabilities = ["knowledge", "escalation"]
     org.is_active = True
     org.created_at = datetime.utcnow()
@@ -183,7 +185,7 @@ class TestProvisioning:
         _cleanup()
 
     @pytest.mark.asyncio
-    async def test_regenerate_key_invalidates_cache(self):
+    async def test_regenerate_key_updates_stored_hash(self):
         _override_provisioning_no_check()
         mock_session = _override_session()
 
@@ -192,21 +194,16 @@ class TestProvisioning:
         mock_result.scalar_one_or_none.return_value = org
         mock_session.execute = AsyncMock(return_value=mock_result)
 
-        mock_cache = AsyncMock()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"/api/v1/provisioning/organizations/{org.id}/regenerate-key",
+            )
 
-        with patch("prosales.api.v1.endpoints.provisioning.get_redis_cache", return_value=mock_cache):
-            with patch("prosales.api.v1.endpoints.provisioning.invalidate_agent_context", new_callable=AsyncMock) as mock_invalidate:
-                transport = ASGITransport(app=app)
-                async with AsyncClient(transport=transport, base_url="http://test") as client:
-                    response = await client.post(
-                        f"/api/v1/provisioning/organizations/{org.id}/regenerate-key",
-                    )
-
-                assert response.status_code == 200
-                # Key should have changed
-                new_key = response.json()["api_key"]
-                assert new_key != ORG_API_KEY
-                mock_invalidate.assert_called_once()
+        assert response.status_code == 200
+        new_key = response.json()["api_key"]
+        assert new_key != ORG_API_KEY
+        assert org.api_key_hash == hash_api_key(new_key)
 
         _cleanup()
 
@@ -664,7 +661,7 @@ class TestAssignments:
         _cleanup()
 
     @pytest.mark.asyncio
-    async def test_unassign_invalidates_cache(self):
+    async def test_unassign_agent(self):
         org = _override_org()
         assignment_id = uuid.uuid4()
 
@@ -680,8 +677,8 @@ class TestAssignments:
 
         with (
             patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_context", new_callable=AsyncMock) as mock_invalidate,
             patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("prosales.api.v1.endpoints.management.invalidate_agent_context", new_callable=AsyncMock) as mock_invalidate,
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -691,7 +688,9 @@ class TestAssignments:
                 )
 
             assert response.status_code == 204
-            mock_invalidate.assert_called_once()
+            mock_session.delete.assert_awaited_once_with(assignment)
+            mock_invalidate.assert_awaited_once()
+            assert mock_invalidate.await_args.args[1] == ORG_API_KEY
 
         _cleanup()
 

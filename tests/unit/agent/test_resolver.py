@@ -10,6 +10,7 @@ from prosales.infrastructure.agent.resolver import (
     AgentContextResolver,
     resolve_published_version,
 )
+from prosales.infrastructure.security.api_keys import hash_api_key
 
 
 @pytest.fixture
@@ -30,7 +31,7 @@ def _make_org_row(org_id=None, api_key="sk-orgsl-1234567890ab"):
     row.id = org_id or uuid.uuid4()
     row.name = "AutoMax Corp"
     row.slug = "automax"
-    row.api_key = api_key
+    row.api_key_hash = hash_api_key(api_key)
     row.api_key_prefix = api_key[:8]
     row.capabilities = ["knowledge", "inventory"]
     row.is_active = True
@@ -118,6 +119,9 @@ async def test_resolve_from_cache(mock_session, mock_cache):
         "agent_type": "support",
         "agent_capabilities": ["voice"],
     })
+    mock_session.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=org_id))
+    )
 
     resolver = AgentContextResolver(mock_session, mock_cache)
     ctx = await resolver.resolve("sk-cache-123456789abc")
@@ -125,7 +129,7 @@ async def test_resolve_from_cache(mock_session, mock_cache):
     assert ctx is not None
     assert ctx.organization_name == "Cached Org"
     assert ctx.agent_name == "Cached Agent"
-    mock_session.execute.assert_not_called()
+    mock_session.execute.assert_called_once()
 
 
 @pytest.mark.asyncio

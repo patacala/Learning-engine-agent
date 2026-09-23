@@ -723,7 +723,14 @@ async def unassign_agent(
 
     await session.delete(assignment)
     await session.flush()
-    await invalidate_agent_context(cache, org.api_key)
+
+    # The org-level agent context cache is keyed by plaintext API key (only
+    # available transiently on the request, since only the hash is stored).
+    # Without this, a removed assignment keeps serving the old agent for up
+    # to CACHE_TTL.
+    auth_api_key = getattr(org, "_auth_api_key", None)
+    if auth_api_key:
+        await invalidate_agent_context(cache, auth_api_key)
 
 
 # ==================== KNOWLEDGE ====================
