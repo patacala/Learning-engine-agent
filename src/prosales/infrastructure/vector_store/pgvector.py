@@ -29,13 +29,17 @@ class PGVectorStore:
         """Search using a precomputed embedding (avoids re-embedding the query)."""
         embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
 
-        # Build query with optional organization filter
+        # Tenant isolation:
+        # - Tenant context sees its own docs plus global/template docs.
+        # - No tenant context sees only global docs. Never fall back to all docs.
         where_clauses = ["embedding IS NOT NULL"]
         params = {"embedding": embedding_str, "limit": top_k}
 
         if self.organization_id is not None:
-            where_clauses.append("organization_id = :organization_id")
+            where_clauses.append("(organization_id = :organization_id OR organization_id IS NULL)")
             params["organization_id"] = str(self.organization_id)
+        else:
+            where_clauses.append("organization_id IS NULL")
 
         where_sql = " AND ".join(where_clauses)
         stmt = text(f"""

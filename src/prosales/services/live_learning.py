@@ -79,8 +79,9 @@ async def run_live_learning(conversation_id: UUID) -> None:
                     outcome=outcome,
                     turns=turns,
                 )
+                vector_store = PGVectorStore(db, organization_id=conv.organization_id)
                 pipeline = LearningPipeline(
-                    db, llm_provider=create_llm_provider(), vector_store=PGVectorStore(db)
+                    db, llm_provider=create_llm_provider(), vector_store=vector_store
                 )
                 positive = outcome == "scheduled"
                 await pipeline.ingest_source(source, extract_expressions=positive)
@@ -89,7 +90,7 @@ async def run_live_learning(conversation_id: UUID) -> None:
                 appointment, purchase = outcome_signals(outcome)
                 scorer = OutcomeScorer()
                 moves_repo = SQLMovesRepository(db)
-                approver = MoveApprover(db, vector_store=PGVectorStore(db))
+                approver = MoveApprover(db, vector_store=vector_store)
                 moves = await moves_repo.list_by_source(source.id)
                 for m in moves:
                     new_score = scorer.score(
