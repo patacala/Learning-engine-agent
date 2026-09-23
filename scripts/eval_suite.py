@@ -59,12 +59,18 @@ logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 DEFAULT_SCENARIOS_DIR = Path(__file__).parent.parent / "tests" / "evals" / "scenarios"
 
 JUDGE_RUBRIC = """Sos un evaluador estricto de conversaciones de ventas. Te doy el mensaje
-del cliente y la respuesta del agente. Calificá la respuesta en 4 criterios, cada uno 0.0-1.0:
+del cliente, el CONTEXTO REAL que el agente tenía disponible (documentos recuperados de su
+base de conocimiento — puede estar vacío) y la respuesta del agente. Calificá la respuesta en
+4 criterios, cada uno 0.0-1.0:
 
 - relevance: ¿responde directamente lo que el cliente preguntó/planteó?
 - tactic_adherence: ¿sigue la táctica de venta indicada (si la hay)?
-- no_fabrication: 1.0 si NO inventa datos (precios, descuentos, stock, garantías) que no se
-  le dieron como contexto; 0.0 si inventa algo concreto y falso.
+- no_fabrication: comparación estricta contra el CONTEXTO REAL dado, no contra lo que te
+  parezca plausible. 1.0 si todo dato concreto (precio, descuento, stock, garantía, plazo)
+  que menciona está respaldado por el contexto O es una afirmación genérica sin números
+  concretos (ej. "podemos ver opciones de financiamiento" sin inventar una tasa). 0.0 si
+  menciona un dato concreto y específico que NO aparece en el contexto. Si el contexto está
+  vacío y la respuesta no menciona ningún dato concreto, no hay fabricación posible: 1.0.
 - language_correct: 1.0 si responde en el idioma esperado y con tono profesional; 0.0 si no.
 
 Devolvé SOLO JSON: {"relevance": 0-1, "tactic_adherence": 0-1, "no_fabrication": 0-1,
@@ -76,6 +82,7 @@ class TurnResult:
     client_message: str
     response: str
     analysis: dict = field(default_factory=dict)
+    knowledge: dict = field(default_factory=dict)
     checks: dict = field(default_factory=dict)
     judge: dict = field(default_factory=dict)
     judge_score: float = 0.0
@@ -121,13 +128,22 @@ def _run_checks(turn_cfg: dict, analysis: dict, strategy: dict, response: str) -
     return checks
 
 
-async def _judge(llm, client_message: str, response: str, tactic: str | None) -> dict:
-    context = f"Táctica indicada al agente: {tactic}" if tactic else "Sin táctica específica indicada."
+def _format_knowledge(knowledge: dict) -> str:
+    docs = (knowledge or {}).get("documents") or []
+    if not docs:
+        return "CONTEXTO REAL: (vacío — el agente no recuperó ningún documento para este turno)"
+    formatted = "\n".join(f"- {d.get('title', '(sin título)')}: {d.get('content', '')[:500]}" for d in docs)
+    return f"CONTEXTO REAL (lo único que el agente tenía disponible):\n{formatted}"
+
+
+async def _judge(llm, client_message: str, response: str, tactic: str | None, knowledge: dict) -> dict:
+    tactic_line = f"Táctica indicada al agente: {tactic}" if tactic else "Sin táctica específica indicada."
     messages = [
         LLMMessage(role="system", content=JUDGE_RUBRIC),
         LLMMessage(
             role="user",
-            content=f"{context}\n\nCliente: {client_message}\n\nAgente: {response}",
+            content=f"{tactic_line}\n\n{_format_knowledge(knowledge)}\n\n"
+                    f"Cliente: {client_message}\n\nAgente: {response}",
         ),
     ]
     try:
@@ -178,7 +194,7 @@ async def run_scenario(scenario: dict, agent_version_id: UUID, cache, llm, thres
 
         checks = _run_checks(turn_cfg, pr.analysis_summary, pr.strategy_summary, pr.response)
         tactic = (pr.strategy_summary or {}).get("tactic_instruction")
-        judge = await _judge(llm, client_message, pr.response, tactic)
+        judge = await _judge(llm, client_message, pr.response, tactic, pr.knowledge_summary)
         score = _judge_score(judge)
 
         turn_passed = all(checks.values()) and score >= threshold
@@ -189,6 +205,7 @@ async def run_scenario(scenario: dict, agent_version_id: UUID, cache, llm, thres
                 "intent": pr.analysis_summary.get("intent"),
                 "strategy_type": (pr.strategy_summary or {}).get("strategy_type"),
             },
+            knowledge=pr.knowledge_summary,
             checks=checks,
             judge=judge,
             judge_score=score,
@@ -210,8 +227,9 @@ def _print_human(results: list[ScenarioResult]) -> None:
         print(f"\n{'═' * 70}\n{status}  {r.name}  (avg judge score: {r.avg_judge_score})\n{'═' * 70}")
         for i, t in enumerate(r.turns, 1):
             mark = "✅" if t.passed else "❌"
+            n_docs = len((t.knowledge or {}).get("documents") or [])
             print(f"\n  Turn {i} {mark} judge={t.judge_score}  intent={t.analysis.get('intent')} "
-                  f"strategy={t.analysis.get('strategy_type')}")
+                  f"strategy={t.analysis.get('strategy_type')}  knowledge_docs={n_docs}")
             print(f"    Cliente: {t.client_message}")
             print(f"    Agente:  {t.response[:200]}")
             failed_checks = [k for k, v in t.checks.items() if not v]
@@ -237,6 +255,7 @@ def _to_json(results: list[ScenarioResult]) -> dict:
                         "client_message": t.client_message,
                         "response": t.response,
                         "analysis": t.analysis,
+                        "knowledge": t.knowledge,
                         "checks": t.checks,
                         "judge": t.judge,
                         "judge_score": t.judge_score,

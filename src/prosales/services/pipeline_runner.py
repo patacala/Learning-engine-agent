@@ -40,6 +40,10 @@ class PipelineResult:
     # existing callers (REST, voice) ignore these and are unaffected.
     strategy_summary: dict = field(default_factory=dict)
     learning_summary: dict = field(default_factory=dict)
+    # What the agent actually had as retrieved context (RAG) for this turn —
+    # the only thing an eval judge can honestly check "no_fabrication" against;
+    # without it, "did it invent a price/discount/warranty" is pure guesswork.
+    knowledge_summary: dict = field(default_factory=dict)
     qualification_terminal: bool = False
     contact_qualification: dict = field(default_factory=dict)
 
@@ -172,6 +176,17 @@ class PipelineRunner:
                 "reasoning": getattr(strategy, "reasoning", ""),
             }
 
+        knowledge = result.get("knowledge")
+        knowledge_dict = {}
+        if knowledge is not None and getattr(knowledge, "documents", None):
+            knowledge_dict = {
+                "query_used": knowledge.query_used,
+                "documents": [
+                    {"title": d.get("title", ""), "content": d.get("content", "")}
+                    for d in knowledge.documents
+                ],
+            }
+
         learning_ctx = result.get("learning_context")
         learning_dict = {}
         if learning_ctx is not None:
@@ -192,6 +207,7 @@ class PipelineRunner:
             outcome=result.get("outcome", "open"),
             strategy_summary=strategy_dict,
             learning_summary=learning_dict,
+            knowledge_summary=knowledge_dict,
             qualification_terminal=bool(result.get("qualification_terminal", False)),
             contact_qualification=result.get("contact_qualification", {}) or {},
         )

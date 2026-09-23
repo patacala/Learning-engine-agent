@@ -7,10 +7,27 @@
       "turns": [
         {
           "client_message": "Me convenciste, ¿puedo pasar a verlo el sábado?",
-          "response": "¡Qué bien! El sábado es perfecto. ¿Qué hora te viene mejor?",
+          "response": "¡Qué bien! El sábado es perfecto. ¿A qué hora te gustaría venir para que agendemos la visita?",
           "analysis": {
             "intent": "scheduling",
             "strategy_type": "urgency"
+          },
+          "knowledge": {
+            "query_used": "Me convenciste, ¿puedo pasar a verlo el sábado?",
+            "documents": [
+              {
+                "title": "agendar cita",
+                "content": "Agente: Excelente, ¿el sábado te viene bien?"
+              },
+              {
+                "title": "agendar cita para prueba de manejo",
+                "content": "Agente: Excelente. Una prueba de manejo es la mejor forma de conocerlo. ¿Te viene bien el sábado?\nCliente: Perfecto, agendemos el sábado."
+              },
+              {
+                "title": "Cerrar la cita para una prueba de manejo y evaluación del trade-in",
+                "content": "Cliente: Está bien. Podría ir el sábado.\nAgente: Perfecto. ¿Mañana o tarde?\nCliente: En la tarde.\nAgente: Perfecto. Te preparo una Q5 para que la pruebes y hacemos la evaluación de tu X3 cuando llegues. Así no pierdes tiempo.\nCliente: Perfecto.\nAgente: Entonces quedamos así: vienes con tu X3, hacemos el trade-in, pruebas la Q5 y revisamos si podemos acercarnos a tu objetivo de $700 mensuales con aproximadamente $2,000 de entrada.\nCliente: Perfecto. Nos vemos el sábado.\nAgente: Excelente. Te esperamos en Audi Miami South. Y si después de manejar la Q5 decides que no es para ti, también está bien. Mi trabajo es ayudarte a encontrar el Audi que realmente tenga sentido para ti."
+              }
+            ]
           },
           "checks": {
             "intent": true,
@@ -21,7 +38,7 @@
             "tactic_adherence": 0.0,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "No menciona promociones actuales ni beneficios limitados en el tiempo."
+            "rationale": "No se mencionaron promociones actuales, disponibilidad limitada o beneficios por tiempo limitado."
           },
           "judge_score": 0.75,
           "passed": true
@@ -31,14 +48,31 @@
     {
       "name": "precio_objecion",
       "passed": true,
-      "avg_judge_score": 0.938,
+      "avg_judge_score": 0.875,
       "turns": [
         {
           "client_message": "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?",
-          "response": "Sí, entiendo que el precio es importante. Fíjate, más allá del costo inicial, ofrecemos una experiencia completa: un servicio al cliente excepcional, soporte post-venta y opciones de financiamiento flexible. ¿Te gustaría visitar nuestra concesionaria para que puedas ver la diferencia en persona?",
+          "response": "Entiendo tu preocupación al respecto. Lo que nos diferencia es la experiencia total que ofrecemos: desde el servicio personalizado hasta el soporte post-venta. Te invito a visitarnos y comprobar la calidad del servicio y la atención que brindamos, que pueden hacer la diferencia en tu decisión.",
           "analysis": {
             "intent": "comparison",
             "strategy_type": "value_first"
+          },
+          "knowledge": {
+            "query_used": "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?",
+            "documents": [
+              {
+                "title": "Reencuadrar la decisión de compra como un proceso sin presión",
+                "content": "Cliente: No estoy seguro de querer comprar hoy.\nAgente: No tienes que comprar hoy. Podemos hacer la prueba de manejo, evaluar tu BMW y revisar los números. Si no tiene sentido, no avanzamos.\nCliente: Eso está bien.\nAgente: Además, si la Q5 no entra en tu presupuesto, podemos revisar otras opciones dentro de Audi. No quiero que compres un vehículo que esté fuera de lo que te resulta cómodo pagar."
+              },
+              {
+                "title": "Manejar la objeción sobre cambios en los números",
+                "content": "Cliente: Tengo miedo de que cuando llegue me cambien los números.\nAgente: Es completamente válido. Por eso, cuando revisemos la propuesta, quiero que veas claramente el precio de la Q5, el valor de tu trade-in, la entrada, impuestos, fees y las condiciones del financiamiento. No quiero que tomes una decisión con un número que después cambie."
+              },
+              {
+                "title": "cerrar con una propuesta concreta de cotización",
+                "content": "Agente: Perfecto. Entonces no tendría sentido presionarte a comprar una cobertura sin que puedas comprobar su valor. Te propongo algo concreto: te preparo una cotización del Q5 con las opciones de garantía extendida, indicando precio, cobertura y exclusiones, y la revisamos contra el presupuesto que tienes en mente. Así puedes decidir con números y no solamente con argumentos de venta."
+              }
+            ]
           },
           "checks": {
             "intent": true,
@@ -46,20 +80,37 @@
           },
           "judge": {
             "relevance": 1.0,
-            "tactic_adherence": 1.0,
+            "tactic_adherence": 0.5,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "La respuesta enfatiza el valor total y beneficios antes de discutir el precio, siguiendo la táctica indicada."
+            "rationale": "La respuesta no enfatiza suficientemente el valor total, beneficios y ROI antes de discutir el precio."
           },
-          "judge_score": 1.0,
+          "judge_score": 0.875,
           "passed": true
         },
         {
           "client_message": "Igual me parece caro, ¿no me pueden hacer un precio mejor?",
-          "response": "Por supuesto, entiendo que el precio puede parecer elevado al principio. Fíjate, muchos clientes han tenido esta misma inquietud, pero lo importante es el costo total en el tiempo, no solo el precio inicial. Además, el precio final depende de la configuración, el trade-in y el financiamiento; podemos agendar una cita con un especialista para ver números exactos.",
+          "response": "Entiendo que el precio pueda parecer elevado al principio. Muchos clientes comenzaron con esa misma preocupación, pero lo relevante es el costo total en el tiempo, no solo el precio inicial. Podemos agendar una cita con un especialista para revisar las diferentes opciones de financiamiento y configuraciones que se adapten mejor a tus necesidades.",
           "analysis": {
             "intent": "objection",
             "strategy_type": "price_defense"
+          },
+          "knowledge": {
+            "query_used": "Igual me parece caro, ¿no me pueden hacer un precio mejor?",
+            "documents": [
+              {
+                "title": "resolver objeción de precio",
+                "content": "Agente: Entiendo tu punto. Muchos clientes empezaron con esa misma duda, pero lo importante es el costo total en el tiempo, no solo el precio inicial.\nCliente: Visto así tiene sentido. ¿Cómo lo pruebo?"
+              },
+              {
+                "title": "Manejar la objeción sobre el precio de la Q5",
+                "content": "Cliente: El problema es que las Q5 que he visto están caras.\nAgente: Te entiendo. Cuando dices caras, ¿estás pensando en el precio total o en el pago mensual?\nCliente: En el pago mensual. No quiero pasar de $700.\nAgente: Perfecto. Entonces vamos a trabajar al revés. En lugar de enseñarte cualquier Q5, buscamos una configuración y unidad que tenga sentido para un pago alrededor de $700."
+              },
+              {
+                "title": "cerrar con una propuesta concreta de cotización",
+                "content": "Agente: Perfecto. Entonces no tendría sentido presionarte a comprar una cobertura sin que puedas comprobar su valor. Te propongo algo concreto: te preparo una cotización del Q5 con las opciones de garantía extendida, indicando precio, cobertura y exclusiones, y la revisamos contra el presupuesto que tienes en mente. Así puedes decidir con números y no solamente con argumentos de venta."
+              }
+            ]
           },
           "checks": {
             "must_not_mention": true
@@ -69,7 +120,7 @@
             "tactic_adherence": 0.5,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "No desglosa el costo por día/mes como indica la táctica."
+            "rationale": "La táctica de desglosar el costo por día/mes no se aplicó."
           },
           "judge_score": 0.875,
           "passed": true

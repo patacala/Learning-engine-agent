@@ -12,6 +12,15 @@ califica cada turno de dos formas:
    determinísticos no ven (una respuesta con el intent correcto pero grosera,
    o que inventa un descuento que nunca se ofreció).
 
+   El check de no-invención está **anclado al contexto real**: `PipelineResult`
+   ahora expone `knowledge_summary` (los documentos que el agente efectivamente
+   recuperó de su base de conocimiento para ese turno — `pipeline_runner.py`),
+   y ese contexto se le pasa al juez explícitamente en el prompt. Sin esto, el
+   juez estaría adivinando si algo "suena inventado" en vez de comparar contra
+   lo que el agente realmente tenía disponible — una corrida real (2026-09-23)
+   confirmó que esto cambia el veredicto: antes el juez no tenía forma de saber
+   si "financiamiento flexible" era un dato real del contexto o un invento.
+
 Un escenario "pasa" solo si TODOS los checks determinísticos pasan Y el score
 del judge supera `--threshold` (default 0.7). El exit code es no-cero si
 algún escenario falla — pensado como gate de CI / pre-publish, no solo reporte.
