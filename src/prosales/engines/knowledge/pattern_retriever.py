@@ -106,6 +106,7 @@ class PatternRetriever:
         client_state: str | None = None,
         limit: int = 3,
         message: str | None = None,
+        message_embedding: list[float] | None = None,
     ) -> LearningContext:
         """``message`` (the client's current turn) scopes both proven_plays and
         behavior_rules to what's topically relevant to THIS message, instead of
@@ -113,12 +114,17 @@ class PatternRetriever:
         would win identically for every objection regardless of topic) and
         every published rule on every turn. Optional and best-effort: embedding
         failure falls back to plain score-based ranking / all rules.
+
+        ``message_embedding``, when given, is reused instead of re-embedding —
+        on full_path, KnowledgeEngine's `retrieve` node already embedded this
+        same message; skips a second OpenAI round-trip for identical text.
         """
         async with self._sf() as s:
             performance = SQLPerformanceRepository(s)
             expressions = SQLExpressionsRepository(s)
             insights = SQLInsightsRepository(s)
-            message_embedding = await self._embed_message(s, message)
+            if message_embedding is None:
+                message_embedding = await self._embed_message(s, message)
             return await self._retrieve(
                 performance, expressions, insights,
                 agent_version_id, move_kinds, stage, client_state, limit, message_embedding,

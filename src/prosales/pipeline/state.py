@@ -47,6 +47,12 @@ class CognitivePipelineState(TypedDict, total=False):
 
     # Knowledge (RAG)
     knowledge: KnowledgeResult
+    # Embedding of `current_message`, computed once by whichever node needs it
+    # first (KnowledgeEngine on full_path, or PatternRetriever via build_prompt
+    # on fast_path where `retrieve` is skipped) and reused by the other — avoids
+    # 2 separate OpenAI embedding round-trips for the same text in one turn
+    # (measured ~200ms-2s each, same latency variance as any other OpenAI call).
+    message_embedding: list[float] | None
 
     # Decision
     decision: Decision

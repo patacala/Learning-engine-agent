@@ -35,11 +35,13 @@ async def test_retriever_called_with_agent_and_injected():
             client_state=None,
             limit=3,
             message=None,
+            message_embedding=None,
         ):
             calls["agent"] = agent_version_id
             calls["move_kinds"] = move_kinds
             calls["client_state"] = client_state
             calls["message"] = message
+            calls["message_embedding"] = message_embedding
             return LearningContext(winning_expressions=["Muchos clientes empezaron así"])
 
     avid = uuid4()

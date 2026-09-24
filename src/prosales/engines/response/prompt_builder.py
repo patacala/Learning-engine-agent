@@ -106,6 +106,7 @@ class PromptBuilder(BaseEngine):
                     move_kinds=move_kinds,
                     client_state=client_state,
                     message=state.get("current_message"),
+                    message_embedding=state.get("message_embedding"),
                 )
             except Exception as e:  # noqa: BLE001 — reuse is best-effort, never block a reply
                 logger.warning("Pattern retrieval failed (non-fatal): %s", e)

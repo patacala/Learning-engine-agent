@@ -24,12 +24,21 @@ class KnowledgeEngine(BaseEngine):
             return {"knowledge": KnowledgeResult(query_used=message)}
 
         org_id = ctx.organization_id if ctx else None
+        # Reuse an embedding already computed this turn (none yet on full_path —
+        # this is typically the first node to need one) instead of re-embedding.
+        embedding = state.get("message_embedding")
+        updates: dict[str, Any] = {}
         try:
             async with self._sf() as s:
-                documents = await PGVectorStore(s, organization_id=org_id).search(message, top_k=3)
+                store = PGVectorStore(s, organization_id=org_id)
+                if embedding is None:
+                    embedding = await store.embed(message)
+                    updates["message_embedding"] = embedding
+                documents = await store.search_by_embedding(embedding, top_k=3)
             result = KnowledgeResult(documents=documents, query_used=message)
         except Exception:
             logger.exception("Knowledge retrieval failed")
             result = KnowledgeResult(query_used=message)
 
-        return {"knowledge": result}
+        updates["knowledge"] = result
+        return updates
