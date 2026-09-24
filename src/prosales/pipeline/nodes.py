@@ -245,16 +245,36 @@ def create_llm_call_node(llm: LLMProvider, model: str | None = None, event_store
         if not messages:
             return {"llm_response": ""}
 
+        # Streaming (see PipelineRunner.run(on_token=...) / conversation.py's
+        # /message/stream): identical outcome for post_process/store/learn
+        # below — only how `content` gets assembled differs. Regular callers
+        # (voice, roleplay, non-streaming REST) never set this, so they keep
+        # the exact `complete()` path unchanged.
+        on_token = state.get("stream_callback")
         start = time.monotonic()
-        response = await llm.complete(messages, model=model)
+
+        if on_token:
+            usage_sink: dict = {}
+            chunks: list[str] = []
+            async for chunk in llm.stream(messages, model=model, usage_sink=usage_sink):
+                chunks.append(chunk)
+                await on_token(chunk)
+            content = "".join(chunks)
+            response_model = usage_sink.get("model") or model or ""
+            usage = usage_sink.get("usage", {})
+        else:
+            response = await llm.complete(messages, model=model)
+            content = response.content
+            response_model = response.model
+            usage = response.usage or {}
+
         duration_ms = (time.monotonic() - start) * 1000
 
         # Record LLM call in execution
         execution: PipelineExecution | None = state.get("execution")
-        usage = response.usage or {}
         llm_call_trace = LLMCall(
             provider="openai",  # TODO: detect from provider
-            model=response.model,
+            model=response_model,
             temperature=0.7,
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
@@ -263,9 +283,9 @@ def create_llm_call_node(llm: LLMProvider, model: str | None = None, event_store
         )
         if execution:
             execution.llm_calls.append(llm_call_trace)
-            execution.versions.model = response.model
+            execution.versions.model = response_model
 
-        return {"llm_response": response.content}
+        return {"llm_response": content}
 
     def _llm_event_factory(state: CognitivePipelineState, result: dict) -> DomainEvent | None:
         execution: PipelineExecution | None = state.get("execution")

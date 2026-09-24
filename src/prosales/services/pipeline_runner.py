@@ -2,6 +2,7 @@
 
 import logging
 import traceback
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID
@@ -131,8 +132,16 @@ class PipelineRunner:
         conversation_id: UUID,
         agent_context: AgentContext | None = None,
         store_user_message: bool = True,
+        on_token: Callable[[str], Awaitable[None]] | None = None,
     ) -> PipelineResult:
-        """Run the cognitive pipeline and return a structured result."""
+        """Run the cognitive pipeline and return a structured result.
+
+        ``on_token``, when given, is awaited once per generated chunk of the
+        main response (see pipeline/nodes.py's llm_call) as it streams from
+        the LLM — for a caller that wants to relay tokens to a client (e.g.
+        POST /conversation/message/stream) while this still returns the same
+        full PipelineResult at the end, same as without it.
+        """
         compiled = self._get_compiled_graph(has_providers=bool(agent_context and self.cache))
 
         execution = PipelineExecution(
@@ -152,6 +161,7 @@ class PipelineRunner:
             "execution": execution,
             "agent_context": agent_context,
             "store_user_message": store_user_message,
+            "stream_callback": on_token,
         }
 
         result = await compiled.ainvoke(initial_state)

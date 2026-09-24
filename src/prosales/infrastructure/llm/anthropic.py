@@ -1,4 +1,5 @@
 import json
+from collections.abc import AsyncIterator
 
 from prosales.core.exceptions import LLMError
 from prosales.infrastructure.llm.clients import get_anthropic_client
@@ -47,6 +48,45 @@ class AnthropicProvider(LLMProvider):
             )
         except Exception as e:
             raise LLMError(f"Anthropic error: {e}") from e
+
+    async def stream(
+        self,
+        messages: list[LLMMessage],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+        usage_sink: dict | None = None,
+    ) -> AsyncIterator[str]:
+        try:
+            system_msg = ""
+            conv_messages = []
+            for m in messages:
+                if m.role == "system":
+                    system_msg = m.content
+                else:
+                    conv_messages.append({"role": m.role, "content": m.content})
+
+            kwargs = {
+                "model": model or self.default_model,
+                "messages": conv_messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            if system_msg:
+                kwargs["system"] = system_msg
+
+            async with self.client.messages.stream(**kwargs) as stream:
+                async for text in stream.text_stream:
+                    yield text
+                final = await stream.get_final_message()
+                if usage_sink is not None:
+                    usage_sink["model"] = final.model
+                    usage_sink["usage"] = {
+                        "prompt_tokens": final.usage.input_tokens,
+                        "completion_tokens": final.usage.output_tokens,
+                    }
+        except Exception as e:
+            raise LLMError(f"Anthropic stream error: {e}") from e
 
     async def complete_json(
         self,

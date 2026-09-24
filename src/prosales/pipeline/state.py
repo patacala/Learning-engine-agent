@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
@@ -74,6 +75,12 @@ class CognitivePipelineState(TypedDict, total=False):
     prompt_messages: list[LLMMessage]
     llm_response: str
     response: str
+    # Set only by callers that want token-level streaming (see
+    # PipelineRunner.run(on_token=...) / POST /conversation/message/stream).
+    # When present, the llm_call node streams and calls this per chunk instead
+    # of a single blocking complete() — everything downstream (post_process,
+    # store, learn) is unaffected either way, it only ever sees the final text.
+    stream_callback: Callable[[str], Awaitable[None]] | None
     # Cognitive Learning Engine: what PromptBuilder retrieved/injected this
     # turn. Was previously computed and discarded — undeclared TypedDict keys
     # are silently dropped by LangGraph's state merging, so this MUST be
