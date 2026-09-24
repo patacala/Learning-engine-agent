@@ -27,6 +27,7 @@ from prosales.core.models.execution import (
 from prosales.engines.learning.event_store import EventStore
 from prosales.infrastructure.database.models import MessageModel
 from prosales.infrastructure.database.repositories.conversation import SQLConversationRepository
+from prosales.infrastructure.llm.observability import LLMCallTracker
 from prosales.infrastructure.llm.provider import LLMProvider
 from prosales.pipeline.state import CognitivePipelineState
 
@@ -49,7 +50,8 @@ def _make_timed_node(
         status = "success"
 
         try:
-            result = await fn(state)
+            with LLMCallTracker(node_id) as http_tracker:
+                result = await fn(state)
         except Exception as e:
             error_msg = str(e)
             status = "error"
@@ -66,6 +68,9 @@ def _make_timed_node(
                 duration_ms=round(duration_ms, 2),
                 status=status,
                 error=error_msg,
+                http_attempts=http_tracker.http_attempts,
+                http_retry_count=http_tracker.http_retry_count,
+                http_max_elapsed_ms=http_tracker.http_max_elapsed_ms,
             )
 
             if execution:

@@ -15,6 +15,13 @@ class NodeTrace(BaseModel):
     duration_ms: float
     status: str  # "success" | "error" | "skipped"
     error: str | None = None
+    # Real HTTP-level ground truth for any LLM/embedding calls made during
+    # this node (infrastructure/llm/observability.py) — lets latency analysis
+    # tell "one slow API round-trip" apart from "the SDK silently retried and
+    # the retries summed up", which look identical from duration_ms alone.
+    http_attempts: int = 0
+    http_retry_count: int = 0
+    http_max_elapsed_ms: float | None = None
 
 
 class LLMCall(BaseModel):
