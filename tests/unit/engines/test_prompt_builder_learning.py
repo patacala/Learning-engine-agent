@@ -17,9 +17,11 @@ async def test_learning_context_from_state_is_injected():
     )
     state = {"current_message": "Hola", "learning_context": ctx}
     result = await PromptBuilder().process(state)
-    system = result["prompt_messages"][0].content
-    assert "JUGADAS QUE FUNCIONAN" in system
-    assert "REGLAS APRENDIDAS" in system
+    # Learning block lives in context_msg (per-turn dynamic), not system_msg
+    # (static, kept stable for OpenAI prompt caching — see prompt_builder.py).
+    context_msg = result["prompt_messages"][1].content
+    assert "JUGADAS QUE FUNCIONAN" in context_msg
+    assert "REGLAS APRENDIDAS" in context_msg
 
 
 @pytest.mark.asyncio
@@ -51,8 +53,8 @@ async def test_retriever_called_with_agent_and_injected():
         "strategy": SimpleNamespace(strategy_type="consultive", tactic_instruction=""),
     }
     result = await PromptBuilder(pattern_retriever=FakeRetriever()).process(state)
-    system = result["prompt_messages"][0].content
-    assert "FRASES GANADORAS" in system
+    context_msg = result["prompt_messages"][1].content
+    assert "FRASES GANADORAS" in context_msg
     assert calls["agent"] == avid
     # "consultive" strategy maps to discovery move kinds via the bridge.
     assert "discovery" in calls["move_kinds"]

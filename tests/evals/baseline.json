@@ -7,7 +7,7 @@
       "turns": [
         {
           "client_message": "Me convenciste, ¿puedo pasar a verlo el sábado?",
-          "response": "¡Por supuesto! El sábado es un excelente día para visitarnos. ¿Te gustaría agendar una prueba de manejo también?",
+          "response": "¡Qué buena noticia! Claro, podemos agendar una visita para el sábado. ¿Te parece bien a las 10 de la mañana, o prefieres otro horario?",
           "analysis": {
             "intent": "scheduling",
             "strategy_type": "urgency"
@@ -38,7 +38,7 @@
             "tactic_adherence": 0.0,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "No menciona promociones actuales, disponibilidad limitada o beneficios por tiempo limitado."
+            "rationale": "No se mencionaron promociones actuales, disponibilidad limitada o beneficios por tiempo limitado."
           },
           "judge_score": 0.75,
           "passed": true
@@ -52,7 +52,7 @@
       "turns": [
         {
           "client_message": "Vi el mismo auto más barato en otra concesionaria, ¿por qué debería comprarles a ustedes?",
-          "response": "Entiendo que el precio es un factor importante. Aunque no siempre podemos competir con el precio, ofrecemos una experiencia completa que incluye un servicio excepcional, soporte post-venta y una relación de confianza. ¿Te gustaría venir a visitarnos para conocer más sobre lo que podemos ofrecer?",
+          "response": "Entiendo que el precio es importante. Más allá del costo inicial, ofrecemos una experiencia completa que incluye un excelente servicio al cliente, soporte post-venta y beneficios exclusivos de nuestra marca. ¿Hay algún aspecto específico del vehículo o servicio que te gustaría explorar más?",
           "analysis": {
             "intent": "objection",
             "strategy_type": "price_defense"
@@ -82,14 +82,14 @@
             "tactic_adherence": 0.0,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "No reencuadra el precio como una inversión a largo plazo ni desglosa el costo por día/mes."
+            "rationale": "No reencuadra el precio como inversión a largo plazo ni desglosa el costo."
           },
           "judge_score": 0.625,
           "passed": false
         },
         {
           "client_message": "Igual me parece caro, ¿no me pueden hacer un precio mejor?",
-          "response": "Entiendo tu preocupación. El precio final depende de varios factores como la configuración, trade-in y opciones de financiamiento. Si te parece, podemos agendar una cita con un especialista para revisar números exactos y buscar la mejor opción para ti.",
+          "response": "Entiendo tu preocupación. El precio final puede variar según la configuración, trade-in y financiamiento. ¿Te gustaría que revisemos juntos estas opciones para ver cómo podría ajustarse a tu presupuesto?",
           "analysis": {
             "intent": "negotiation",
             "strategy_type": "value_first"
@@ -119,7 +119,7 @@
             "tactic_adherence": 0.5,
             "no_fabrication": 1.0,
             "language_correct": 1.0,
-            "rationale": "No enfatiza el valor total, beneficios o ROI antes de discutir el precio."
+            "rationale": "No enfatiza el valor total, beneficios y ROI antes de discutir el precio."
           },
           "judge_score": 0.875,
           "passed": true

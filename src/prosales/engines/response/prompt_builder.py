@@ -20,10 +20,7 @@ CONSTRAINTS:
 - Stay in character as a helpful sales consultant
 - Be conversational, not formal
 - If there is conversation history, acknowledge it naturally. Don't restart as if meeting for the first time
-- Never use filler phrases like "aja", "como no", "claro" at the start -- the voice layer handles those
-
-{strategy_instruction}
-{plan_instruction}"""
+- Never use filler phrases like "aja", "como no", "claro" at the start -- the voice layer handles those"""
 
 CONTEXT_TEMPLATE = """RELEVANT CONTEXT:
 {facts}
@@ -49,10 +46,23 @@ class PromptBuilder(BaseEngine):
         ctx = state.get("agent_context")
         identity = state.get("identity")
 
-        # Build personality section
-        tone = personality.compile_tone() if personality else "Profesional y cercano"
-        instructions = personality.compile_instructions() if personality else []
+        # Build personality section — STATIC only (brand/conversation/voice/
+        # identity), stable per agent_version_id, so it stays in the cacheable
+        # system_msg below. `emotion` (mood) is dynamic — derived from the
+        # client's sentiment each turn — and moves to the per-turn context_msg
+        # further down; see personality.py's compile_static_*/compile_emotion_*
+        # split (Fase 4 latency: OpenAI prompt caching needs an exact-matching
+        # prefix, which mixing emotion in here used to break almost immediately).
+        tone = personality.compile_static_tone() if personality else "Profesional y cercano"
+        instructions = personality.compile_static_instructions() if personality else []
         personality_str = "\n".join(f"- {i}" for i in instructions) if instructions else "Be helpful"
+
+        mood_tone = personality.compile_emotion_tone() if personality else ""
+        mood_instructions = personality.compile_emotion_instructions() if personality else []
+        mood_str = ""
+        if mood_tone or mood_instructions:
+            mood_lines = "\n".join(f"- {i}" for i in mood_instructions)
+            mood_str = f"\nCURRENT MOOD: {mood_tone}\n{mood_lines}".rstrip()
 
         # Language
         lang = analysis.language.language if analysis else "es"
@@ -122,14 +132,20 @@ class PromptBuilder(BaseEngine):
         if strategy and strategy.tactic_instruction and not has_matching_play:
             strategy_str = f"\nSTRATEGY (punto de partida genérico): {strategy.tactic_instruction}"
 
+        # system_msg is now STATIC ONLY (no strategy/plan/mood/learning — those
+        # are per-turn and vary every time, see below) so it stays byte-identical
+        # across turns of the same agent and OpenAI's automatic prompt caching
+        # can actually match its prefix (needs >=1024 tokens, exact match).
         system_msg = await self._build_system_message(
-            lookup_id, tone, personality_str, language, max_sentences,
-            strategy_str, plan_str, identity,
+            lookup_id, tone, personality_str, language, max_sentences, identity,
         )
-        system_msg = self._append_style(system_msg, style_profile)
-        system_msg = self._append_learning(system_msg, learning_ctx)
+        system_msg = self._append_style(system_msg, style_profile)  # also static (agent-level)
 
-        # Context section
+        # Context section — everything here is per-turn dynamic already
+        # (facts/knowledge/summary), plus mood/strategy/plan/learning moved in
+        # from system_msg above: same content sent to the model, just grouped
+        # with the other things that change every turn instead of poisoning
+        # the static prefix.
         facts_str = ""
         if context and context.critical_facts:
             facts_str = "Client facts:\n" + "\n".join(
@@ -149,6 +165,13 @@ class PromptBuilder(BaseEngine):
             knowledge=knowledge_str,
             conversation_summary=summary_str,
         ).strip()
+        if mood_str:
+            context_msg = f"{context_msg}\n{mood_str}".strip()
+        if strategy_str:
+            context_msg = f"{context_msg}\n{strategy_str}".strip()
+        if plan_str:
+            context_msg = f"{context_msg}\n{plan_str}".strip()
+        context_msg = self._append_learning(context_msg, learning_ctx)
 
         # Build messages
         messages = [LLMMessage(role="system", content=system_msg)]
@@ -171,18 +194,21 @@ class PromptBuilder(BaseEngine):
         return {"prompt_messages": messages, "learning_context": learning_ctx}
 
     async def _build_system_message(
-        self, lookup_id, tone, personality_str, language, max_sentences,
-        strategy_str, plan_str, identity=None,
+        self, lookup_id, tone, personality_str, language, max_sentences, identity=None,
     ) -> str:
-        """Build system message from agent templates or default."""
+        """Build system message from agent templates or default.
+
+        STATIC content only — no strategy/plan (those are per-turn, live in
+        context_msg now, see process()). Keeping this 100% stable per
+        agent_version_id lets OpenAI's automatic prompt caching match its
+        prefix across turns.
+        """
         if not (self.prompt_provider and lookup_id):
             base = DEFAULT_SYSTEM_TEMPLATE.format(
                 tone=tone,
                 personality_instructions=personality_str,
                 language=language,
                 max_sentences=max_sentences,
-                strategy_instruction=strategy_str,
-                plan_instruction=plan_str,
             )
             return self._append_identity_blocks(base, identity)
 
@@ -194,8 +220,6 @@ class PromptBuilder(BaseEngine):
                 personality_instructions=personality_str,
                 language=language,
                 max_sentences=max_sentences,
-                strategy_instruction=strategy_str,
-                plan_instruction=plan_str,
             )
             return self._append_identity_blocks(base, identity)
 
@@ -245,11 +269,6 @@ class PromptBuilder(BaseEngine):
         output_tmpl = templates.get("output")
         if output_tmpl:
             parts.append(f"\nOUTPUT FORMAT:\n{output_tmpl}")
-
-        if strategy_str:
-            parts.append(strategy_str)
-        if plan_str:
-            parts.append(plan_str)
 
         return "\n".join(parts)
 
