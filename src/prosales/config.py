@@ -27,7 +27,14 @@ class Settings(BaseSettings):
     # LLM Config
     primary_llm_provider: str = "openai"
     primary_llm_model: str = "gpt-4o"
+    # OpenAI Fast mode (was "Priority processing"): ~2x cost, meaningfully lower
+    # tail latency/variance — confirmed empirically 2026-09-24 (stdev 95ms vs
+    # 196ms, max 807ms vs 1109ms on this account). On for the main response
+    # (biggest $/token, biggest latency share); off for the analyzer by default.
+    # Adjust either independently via env — no code change needed.
+    primary_llm_service_tier: str | None = "priority"
     analyzer_llm_model: str = "gpt-4o-mini"
+    analyzer_llm_service_tier: str | None = None
     # Fase 4.2: fuse intent/sentiment/stage/contact_signals into one LLM call
     # instead of 4 parallel ones (~57% of turn latency measured 2026-09-23).
     # Flip to False to roll back to the 4-call path without a redeploy if eval

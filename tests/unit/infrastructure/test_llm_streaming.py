@@ -31,6 +31,7 @@ async def test_openai_stream_yields_text_and_reports_usage():
     provider = OpenAIProvider.__new__(OpenAIProvider)
     provider.client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=AsyncMock())))
     provider.default_model = "gpt-4o-mini"
+    provider.service_tier = None
 
     chunks = [
         _openai_chunk(delta_content="Hola"),
@@ -60,6 +61,7 @@ async def test_openai_stream_wraps_errors():
         create=AsyncMock(side_effect=RuntimeError("boom"))
     )))
     provider.default_model = "gpt-4o-mini"
+    provider.service_tier = None
 
     with pytest.raises(LLMError):
         async for _ in provider.stream([LLMMessage(role="user", content="hola")]):
