@@ -122,10 +122,14 @@ services:
         # Baked into the static bundle at build time; must match INTERNAL_API_TOKEN.
         VITE_INTERNAL_TOKEN: ${INTERNAL_API_TOKEN:-}
     restart: unless-stopped
-    # Public service. Coolify maps the domain to this exposed port (do NOT publish
-    # host port 80 — it collides with Coolify's own proxy).
+    # Public service. Either let Coolify map a domain to the exposed port, or
+    # publish WEB_HOST_PORT on the host for an external tunnel (cloudflared,
+    # etc.) to point at — do NOT use host port 80, it collides with Coolify's
+    # own proxy.
     expose:
       - "80"
+    ports:
+      - "${WEB_HOST_PORT:-4007}:80"
     depends_on:
       - api
 
