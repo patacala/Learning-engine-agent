@@ -22,6 +22,7 @@ from prosales.api.v1.schemas.management import (
     AssignmentResponse,
     CreateAgentRequest,
     CreateVersionRequest,
+    CrmIntegrationRequest,
     IdentityPayload,
     IndexDocumentRequest,
     KnowledgeDocumentResponse,
@@ -122,6 +123,26 @@ def _version_response(version: AgentVersionModel) -> VersionResponse:
         is_published=version.is_published,
         capabilities=version.capabilities or [],
     )
+
+
+# ==================== CRM INTEGRATION ====================
+
+@router.put("/organization/crm-integration")
+async def set_crm_integration(
+    body: CrmIntegrationRequest,
+    org: OrganizationModel = Depends(get_authenticated_org),
+) -> CrmIntegrationRequest:
+    """Set the credentials this org's agent uses to call back the CRM's
+    send_message tool after replying (see crm_inbound.py). Without this,
+    /crm/inbound processes messages but silently can't deliver the reply —
+    see crm-integration-2026-09 memory for how this gap was found.
+    """
+    session = await _get_session_from_org(org)
+    org.crm_base_url = body.crm_base_url
+    org.crm_api_key = body.crm_api_key
+    org.crm_agent_id = body.crm_agent_id
+    await session.flush()
+    return body
 
 
 # ==================== AGENTS ====================

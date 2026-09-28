@@ -24,6 +24,18 @@ class OrganizationResponse(BaseModel):
     is_active: bool = True
 
 
+class CrmIntegrationRequest(BaseModel):
+    """Credentials this org's agent needs to call back the CRM's
+    POST /ai/tools/execute (tool="send_message") once its pipeline finishes —
+    see api/v1/endpoints/crm_inbound.py. Without these, /crm/inbound accepts
+    the message, runs the pipeline, and silently skips the reply callback.
+    """
+
+    crm_base_url: str
+    crm_api_key: str
+    crm_agent_id: str
+
+
 class BootstrapTenantRequest(BaseModel):
     """Full first-tenant setup — org + primary agent + strategy catalog.
 
