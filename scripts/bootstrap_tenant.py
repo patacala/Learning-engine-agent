@@ -52,6 +52,7 @@ async def _run(args: argparse.Namespace) -> None:
                 api_key=args.api_key,
                 strategy_topup=not args.no_strategy_topup,
             )
+            await session.commit()
     finally:
         await engine.dispose()
 

@@ -38,7 +38,11 @@ async def bootstrap_tenant(
     api_key: str | None = None,
     strategy_topup: bool = True,
 ) -> dict:
-    """Create (or reuse) an organization, its primary agent, and the strategy catalog."""
+    """Create (or reuse) an organization, its primary agent, and the strategy catalog.
+
+    Does NOT commit — callers own the transaction (endpoints via
+    get_db_session's session.begin(), the CLI script explicitly).
+    """
     # 1. Organization (reuse by slug if it already exists).
     org = (
         await session.execute(select(OrganizationModel).where(OrganizationModel.slug == slug))
@@ -81,9 +85,8 @@ async def bootstrap_tenant(
     # 4. Fill the strategy catalog to the full set for every published version.
     topup = None
     if strategy_topup:
-        topup = await seed_strategies(session)  # commits internally
+        topup = await seed_strategies(session)
 
-    await session.commit()
     return {
         "org_id": str(org.id),
         "slug": org.slug,

@@ -16,7 +16,11 @@ from prosales.infrastructure.database.models_agent import (
 
 
 async def seed_strategies(session: AsyncSession) -> dict[str, int]:
-    """Insert missing strategies for all published agent versions. Returns counts."""
+    """Insert missing strategies for all published agent versions. Returns counts.
+
+    Does NOT commit — callers own the transaction (endpoints via
+    get_db_session's session.begin(), the CLI script explicitly).
+    """
     result = await session.execute(
         select(AgentVersionModel).where(AgentVersionModel.is_published.is_(True))
     )
@@ -61,5 +65,4 @@ async def seed_strategies(session: AsyncSession) -> dict[str, int]:
 
             total_added += 1
 
-    await session.commit()
     return {"added": total_added, "skipped": total_skipped, "versions": len(versions)}

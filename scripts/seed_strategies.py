@@ -27,6 +27,7 @@ async def main():
 
     async with async_session() as session:
         counts = await seed_strategies(session)
+        await session.commit()
         print(f"Seed complete: {counts['added']} strategies added, "
               f"{counts['skipped']} skipped, "
               f"{counts['versions']} versions processed.")
