@@ -1,0 +1,70 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ProSales — Runtime: Incoming Message",
+    "output": "prosales-runtime.workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "shared-path", "label": "Shared entry: remember → route", "focus": ["remember", "context_build", "analyze", "route", "identify"], "note": "Every message loads memory, builds context, runs analyzers, then ConversationManager decides the path." },
+      { "id": "fast-path", "label": "FAST_PATH: skip strategy work", "focus": ["identify", "personify", "response_plan", "build_prompt"], "note": "ConversationManager judged the turn low-stakes; retrieval, decision, and strategy are skipped entirely." },
+      { "id": "full-path", "label": "FULL_PATH: full cognitive stack", "focus": ["retrieve", "decide", "strategize", "plan", "personify"], "note": "Knowledge retrieval, rule-based decision, strategy selection, and sales planning run before response shaping." },
+      { "id": "response-and-learn", "label": "Respond, store, learn", "focus": ["build_prompt", "llm_call", "post_process", "voice_layer", "store", "learn"], "note": "Prompt assembly, the LLM call, post-processing, persistence, and the learning engine close out the turn." }
+    ]
+  },
+  "lanes": [
+    { "id": "intake", "label": "Intake + Understanding" },
+    { "id": "cognition", "label": "FULL_PATH Cognition" },
+    { "id": "response", "label": "Response Shaping" },
+    { "id": "delivery", "label": "Delivery + Learn" }
+  ],
+  "nodes": [
+    { "id": "remember", "lane": "intake", "col": 0, "type": "database", "label": "remember", "sublabel": "3-tier memory load" },
+    { "id": "context_build", "lane": "intake", "col": 1, "type": "backend", "label": "context_build", "sublabel": "ContextBuilderEngine" },
+    { "id": "analyze", "lane": "intake", "col": 2, "type": "backend", "label": "analyze", "sublabel": "6 analyzers" },
+    { "id": "route", "lane": "intake", "col": 3, "type": "backend", "label": "route", "sublabel": "ConversationManager" },
+    { "id": "identify", "lane": "intake", "col": 4, "type": "backend", "label": "identify", "sublabel": "IdentityEngine", "tag": "FAST vs FULL" },
+
+    { "id": "retrieve", "lane": "cognition", "col": 4, "type": "database", "label": "retrieve", "sublabel": "RAG · PGVector" },
+    { "id": "decide", "lane": "cognition", "col": 3, "type": "backend", "label": "decide", "sublabel": "rule-based" },
+    { "id": "strategize", "lane": "cognition", "col": 2, "type": "backend", "label": "strategize", "sublabel": "30-tactic catalog" },
+    { "id": "plan", "lane": "cognition", "col": 1, "type": "backend", "label": "plan", "sublabel": "SalesPlannerEngine" },
+
+    { "id": "personify", "lane": "response", "col": 0, "type": "backend", "label": "personify", "sublabel": "5-layer personality" },
+    { "id": "response_plan", "lane": "response", "col": 1, "type": "backend", "label": "response_plan", "sublabel": "ResponsePlanner" },
+    { "id": "build_prompt", "lane": "response", "col": 2, "type": "backend", "label": "build_prompt", "sublabel": "static/dynamic split" },
+    { "id": "llm_call", "lane": "response", "col": 3, "type": "external", "label": "llm_call", "sublabel": "OpenAI/Anthropic SSE", "tag": "priority tier" },
+
+    { "id": "post_process", "lane": "delivery", "col": 0, "type": "backend", "label": "post_process", "sublabel": "PostProcessor" },
+    { "id": "voice_layer", "lane": "delivery", "col": 1, "type": "backend", "label": "voice_layer", "sublabel": "VoiceLayerEngine" },
+    { "id": "store", "lane": "delivery", "col": 2, "type": "database", "label": "store", "sublabel": "short-lived DB session" },
+    { "id": "learn", "lane": "delivery", "col": 3, "type": "backend", "label": "learn", "sublabel": "EventStore" }
+  ],
+  "edges": [
+    { "from": "remember", "to": "context_build" },
+    { "from": "context_build", "to": "analyze" },
+    { "from": "analyze", "to": "route" },
+    { "from": "route", "to": "identify" },
+
+    { "from": "identify", "to": "retrieve", "label": "FULL_PATH", "variant": "emphasis" },
+    { "from": "identify", "to": "personify", "label": "FAST_PATH (skip retrieve/decide/strategize/plan)", "variant": "dashed" },
+
+    { "from": "retrieve", "to": "decide" },
+    { "from": "decide", "to": "strategize" },
+    { "from": "strategize", "to": "plan" },
+    { "from": "plan", "to": "personify" },
+
+    { "from": "personify", "to": "response_plan" },
+    { "from": "response_plan", "to": "build_prompt" },
+    { "from": "build_prompt", "to": "llm_call" },
+    { "from": "llm_call", "to": "post_process" },
+    { "from": "post_process", "to": "voice_layer" },
+    { "from": "voice_layer", "to": "store" },
+    { "from": "store", "to": "learn" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "One entry, two depths", "items": ["route_by_path picks FAST_PATH or FULL_PATH after identify"] },
+    { "dot": "emerald", "title": "FULL_PATH cognition", "items": ["retrieve (RAG) → decide → strategize → plan feed personify"] },
+    { "dot": "amber", "title": "Respond, then learn", "items": ["build_prompt → llm_call (SSE) → post_process → voice → store → learn"] }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ProSales — System Architecture",
+    "output": "prosales-architecture.architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "request-path", "label": "A message's request path", "focus": ["frontend", "api", "pipeline", "postgres", "redis"], "note": "Frontend and voice/roleplay channels call the FastAPI layer, which invokes the LangGraph cognitive pipeline against short-lived DB sessions." },
+      { "id": "llm-providers", "label": "LLM providers", "focus": ["pipeline", "llm_providers"], "note": "OpenAI runs the analyzer calls and can serve as primary; Anthropic is the other configurable primary-response provider." },
+      { "id": "channels", "label": "Voice + Roleplay channels", "focus": ["voice", "roleplay", "pipeline", "api"], "note": "Both channels reuse the same PipelineRunner instead of a separate response path." },
+      { "id": "learning-loop", "label": "Post-turn learning loop", "focus": ["pipeline", "learning_pipeline", "postgres"], "note": "The learning pipeline ingests turn outcomes asynchronously and writes moves/expressions/insights back to Postgres." }
+    ]
+  },
+  "components": [
+    { "id": "voice", "type": "external", "label": "Voice Channel", "sublabel": "channels/voice", "pos": [40, 70], "size": [130, 60] },
+    { "id": "frontend", "type": "frontend", "label": "Frontend", "sublabel": "Vite + React", "pos": [40, 300], "size": [130, 60] },
+    { "id": "roleplay", "type": "backend", "label": "Roleplay Channel", "sublabel": "training simulator", "pos": [40, 530], "size": [130, 60] },
+    { "id": "api", "type": "backend", "label": "FastAPI API", "sublabel": "conversation/learning/roleplay", "pos": [260, 300], "size": [140, 62] },
+    { "id": "pipeline", "type": "backend", "label": "Cognitive Pipeline", "sublabel": "LangGraph · FAST/FULL path", "pos": [500, 300], "size": [150, 64], "tag": "18 engines" },
+    { "id": "llm_providers", "type": "external", "label": "LLM Providers", "sublabel": "OpenAI (priority) · Anthropic", "pos": [760, 90], "size": [160, 62] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "PGVector · Alembic head 015", "pos": [760, 300], "size": [150, 62] },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "cache", "pos": [760, 510], "size": [130, 60] },
+    { "id": "learning_pipeline", "type": "backend", "label": "Learning Pipeline", "sublabel": "moves/expressions/insights", "pos": [500, 530], "size": [150, 62] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "ProSales application (FastAPI + LangGraph)", "wraps": ["api", "pipeline", "roleplay", "learning_pipeline"], "pad": 20 }
+  ],
+  "connections": [
+    { "from": "frontend", "to": "api", "label": "HTTPS / REST + SSE", "variant": "emphasis", "labelDy": 46 },
+    { "from": "voice", "to": "api", "label": "webhook", "variant": "dashed" },
+    { "from": "roleplay", "to": "pipeline", "label": "PipelineRunner.run()", "variant": "dashed" },
+    { "from": "api", "to": "pipeline", "label": "PipelineRunner.run()", "labelDy": -19 },
+    { "from": "pipeline", "to": "llm_providers", "label": "analyzer + response calls", "variant": "emphasis" },
+    { "from": "pipeline", "to": "postgres", "label": "short-lived sessions", "labelDx": 60, "labelDy": -26 },
+    { "from": "pipeline", "to": "redis", "label": "cache read/write" },
+    { "from": "pipeline", "to": "learning_pipeline", "label": "post-turn event", "variant": "dashed", "labelDy": -58 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "One pipeline, three entry points", "items": ["Frontend REST/SSE, Voice webhooks, and the Roleplay simulator all call the same PipelineRunner", "No channel has its own response path — FAST_PATH/FULL_PATH routing happens once, inside the pipeline"] },
+    { "dot": "emerald", "title": "Short-lived DB sessions", "items": ["Memory, knowledge, and store nodes open brief sessions via session_factory", "No connection is held across the LLM-heavy nodes, so concurrency doesn't starve Postgres", "The Learning Pipeline also writes moves/expressions/insights back to the same PostgreSQL instance, asynchronously"] },
+    { "dot": "amber", "title": "Configurable LLM providers", "items": ["OpenAI runs the cheap gpt-4o-mini analyzer calls and can serve as primary with priority-tier service", "Anthropic is the other configurable primary-response provider, resolved per agent_version_id"] }
+  ]
+}
