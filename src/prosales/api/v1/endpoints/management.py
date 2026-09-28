@@ -11,7 +11,11 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from prosales.api.v1.dependencies import get_authenticated_org, get_db_session, get_redis_cache
+from prosales.api.v1.dependencies import (
+    current_db_session,
+    get_authenticated_org,
+    get_redis_cache,
+)
 from prosales.api.v1.schemas.management import (
     AgentResponse,
     AssignAgentRequest,
@@ -56,10 +60,10 @@ router = APIRouter(prefix="/management", tags=["management"])
 
 # --- Helpers ---
 
-async def _get_session_from_org(org: OrganizationModel) -> AsyncSession:
-    """The session is embedded in the org via dependency injection."""
-    from sqlalchemy import inspect
-    return inspect(org).session
+async def _get_session_from_org(_org: OrganizationModel) -> AsyncSession:
+    """Async session of the current request. inspect(org).session is the sync
+    Session and raises MissingGreenlet as soon as a query runs."""
+    return current_db_session()
 
 
 async def _verify_agent_belongs_to_org(session: AsyncSession, agent_id: uuid.UUID, org_id: uuid.UUID) -> AgentModel:

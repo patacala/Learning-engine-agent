@@ -1,5 +1,6 @@
 import hmac
 import logging
+from contextvars import ContextVar
 from typing import AsyncGenerator
 
 from fastapi import Depends, Header, HTTPException
@@ -27,10 +28,27 @@ def get_redis_cache() -> RedisCache:
     return _redis_cache
 
 
+# The request-scoped AsyncSession. Management endpoints used to recover the
+# session with inspect(org).session, which returns the sync Session and then
+# raises MissingGreenlet on the first query.
+_request_session: ContextVar[AsyncSession | None] = ContextVar("prosales_request_session", default=None)
+
+
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         async with session.begin():
-            yield session
+            token = _request_session.set(session)
+            try:
+                yield session
+            finally:
+                _request_session.reset(token)
+
+
+def current_db_session() -> AsyncSession:
+    session = _request_session.get()
+    if session is None:
+        raise RuntimeError("No request database session")
+    return session
 
 
 async def get_agent_context(
