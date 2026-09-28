@@ -3,7 +3,7 @@
 Protected by PROVISIONING_SECRET. Only 2 endpoints — minimal surface.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -55,7 +55,7 @@ async def provision_organization(
         existing.name = body.name
         if body.capabilities_preset in ORG_CAPABILITY_PRESETS:
             existing.capabilities = ORG_CAPABILITY_PRESETS[body.capabilities_preset]
-        existing.updated_at = datetime.now(timezone.utc)
+        existing.updated_at = datetime.utcnow()
         await session.flush()
         return _org_response(existing)
 
@@ -110,7 +110,7 @@ async def regenerate_api_key(
     new_key = generate_api_key(org.slug)
     org.api_key_hash = hash_api_key(new_key)
     org.api_key_prefix = api_key_prefix(new_key)
-    org.updated_at = datetime.now(timezone.utc)
+    org.updated_at = datetime.utcnow()
     await session.flush()
 
     return _org_response(org, api_key=new_key)
