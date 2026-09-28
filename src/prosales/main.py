@@ -7,6 +7,7 @@ from prosales.api.v1.endpoints.agents import router as agents_router
 from prosales.api.v1.endpoints.assistant import router as assistant_router
 from prosales.api.v1.endpoints.contact import router as contact_router
 from prosales.api.v1.endpoints.conversation import router as conversation_router
+from prosales.api.v1.endpoints.crm_inbound import router as crm_inbound_router
 from prosales.api.v1.endpoints.episode import router as episode_router
 from prosales.api.v1.endpoints.health import router as health_router
 from prosales.api.v1.endpoints.learning import router as learning_router
@@ -37,6 +38,7 @@ app.add_middleware(
 
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(conversation_router, prefix="/api/v1")
+app.include_router(crm_inbound_router, prefix="/api/v1")
 app.include_router(contact_router, prefix="/api/v1")
 app.include_router(episode_router, prefix="/api/v1")
 app.include_router(timeline_router, prefix="/api/v1")

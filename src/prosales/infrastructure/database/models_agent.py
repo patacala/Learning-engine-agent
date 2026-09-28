@@ -22,6 +22,12 @@ class OrganizationModel(Base):
     api_key_prefix: Mapped[str] = mapped_column(String(8), nullable=False)
     capabilities: Mapped[list] = mapped_column(JSONB, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # CRM integration (POST /crm/inbound callback): base URL + API key to call
+    # back the CRM's /ai/tools/execute (e.g. tool="send_message"), and the
+    # automation-agent id that call is attributed to on the CRM side.
+    crm_base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    crm_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    crm_agent_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
