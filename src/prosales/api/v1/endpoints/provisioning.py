@@ -10,7 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from prosales.api.v1.dependencies import get_db_session, verify_provisioning_secret
-from prosales.api.v1.schemas.management import OrganizationResponse, ProvisionOrganizationRequest
+from prosales.api.v1.schemas.management import (
+    BootstrapTenantRequest,
+    BootstrapTenantResponse,
+    OrganizationResponse,
+    ProvisionOrganizationRequest,
+)
+from prosales.infrastructure.agent.bootstrap import bootstrap_tenant
 from prosales.infrastructure.agent.templates import ORG_CAPABILITY_PRESETS, create_organization
 from prosales.infrastructure.database.models_agent import OrganizationModel
 from prosales.infrastructure.security.api_keys import api_key_prefix, generate_api_key, hash_api_key
@@ -63,6 +69,27 @@ async def provision_organization(
         capabilities_preset=body.capabilities_preset,
     )
     return _org_response(org, api_key=clear_api_key)
+
+
+@router.post("/bootstrap")
+async def bootstrap(
+    body: BootstrapTenantRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> BootstrapTenantResponse:
+    """HTTP equivalent of scripts/bootstrap_tenant.py — org + primary agent +
+    strategy catalog top-up, idempotent by slug. For environments where a
+    shell/SSH one-off (the `bootstrap` compose profile) isn't reachable.
+    """
+    result = await bootstrap_tenant(
+        session,
+        name=body.name,
+        slug=body.slug,
+        agent_type=body.agent_type,
+        capabilities_preset=body.capabilities_preset,
+        api_key=body.api_key,
+        strategy_topup=body.strategy_topup,
+    )
+    return BootstrapTenantResponse(**result)
 
 
 @router.post("/organizations/{org_id}/regenerate-key")

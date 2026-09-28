@@ -24,6 +24,32 @@ class OrganizationResponse(BaseModel):
     is_active: bool = True
 
 
+class BootstrapTenantRequest(BaseModel):
+    """Full first-tenant setup — org + primary agent + strategy catalog.
+
+    Used by POST /provisioning/bootstrap, the HTTP equivalent of
+    scripts/bootstrap_tenant.py for environments without shell/SSH access
+    (e.g. a Coolify deploy before the console is available).
+    """
+
+    name: str
+    slug: str
+    agent_type: str = "sales"
+    capabilities_preset: str = "full"
+    api_key: str | None = None
+    strategy_topup: bool = True
+
+
+class BootstrapTenantResponse(BaseModel):
+    org_id: UUID
+    slug: str
+    api_key: str | None = None
+    capabilities: list[str] = Field(default_factory=list)
+    created_org: bool
+    created_agent: bool
+    strategy_topup: dict | None = None
+
+
 # --- Agents ---
 
 class CreateAgentRequest(BaseModel):

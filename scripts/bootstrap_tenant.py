@@ -30,91 +30,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from prosales.config import settings
-from prosales.infrastructure.agent.templates import (
-    AGENT_TEMPLATES,
-    ORG_CAPABILITY_PRESETS,
-    assign_agent_to_org,
-    create_agent_from_template,
-    create_organization,
-)
-from prosales.infrastructure.database.models_agent import (
-    OrganizationAgentModel,
-    OrganizationModel,
-)
-from scripts.seed_strategies import seed_strategies
-
-
-async def _bootstrap(
-    session: AsyncSession,
-    *,
-    name: str,
-    slug: str,
-    agent_type: str,
-    capabilities_preset: str,
-    api_key: str | None,
-    strategy_topup: bool,
-) -> dict:
-    # 1. Organization (reuse by slug if it already exists).
-    org = (
-        await session.execute(
-            select(OrganizationModel).where(OrganizationModel.slug == slug)
-        )
-    ).scalar_one_or_none()
-    if org is None:
-        org = await create_organization(
-            session,
-            name=name,
-            slug=slug,
-            api_key=api_key,
-            capabilities_preset=capabilities_preset,
-        )
-        created_org = True
-    else:
-        created_org = False
-
-    # 2+3. Agent + assignment — only if the org has no primary active agent yet.
-    existing_primary = (
-        await session.execute(
-            select(OrganizationAgentModel).where(
-                OrganizationAgentModel.organization_id == org.id,
-                OrganizationAgentModel.is_primary.is_(True),
-                OrganizationAgentModel.is_active.is_(True),
-            )
-        )
-    ).scalar_one_or_none()
-
-    if existing_primary is None:
-        _, version = await create_agent_from_template(
-            session,
-            name=f"{name} Agent",
-            slug=f"{slug}-agent",
-            agent_type=agent_type,
-        )
-        await assign_agent_to_org(session, org.id, version.id, is_primary=True)
-        created_agent = True
-    else:
-        created_agent = False
-
-    # 4. Fill the strategy catalog to the full set for every published version.
-    topup = None
-    if strategy_topup:
-        topup = await seed_strategies(session)  # commits internally
-
-    await session.commit()
-    return {
-        "org_id": str(org.id),
-        "slug": org.slug,
-        "api_key": getattr(org, "_plain_api_key", api_key if created_org and api_key else None),
-        "capabilities": org.capabilities or [],
-        "created_org": created_org,
-        "created_agent": created_agent,
-        "strategy_topup": topup,
-    }
+from prosales.infrastructure.agent.bootstrap import bootstrap_tenant
+from prosales.infrastructure.agent.templates import AGENT_TEMPLATES, ORG_CAPABILITY_PRESETS
 
 
 async def _run(args: argparse.Namespace) -> None:
@@ -122,7 +43,7 @@ async def _run(args: argparse.Namespace) -> None:
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     try:
         async with async_session() as session:
-            result = await _bootstrap(
+            result = await bootstrap_tenant(
                 session,
                 name=args.name,
                 slug=args.slug,
