@@ -79,8 +79,10 @@ async def bootstrap_tenant(
         )
         await assign_agent_to_org(session, org.id, version.id, is_primary=True)
         created_agent = True
+        agent_version_id = version.id
     else:
         created_agent = False
+        agent_version_id = existing_primary.agent_version_id
 
     # 4. Fill the strategy catalog to the full set for every published version.
     topup = None
@@ -90,6 +92,7 @@ async def bootstrap_tenant(
     return {
         "org_id": str(org.id),
         "slug": org.slug,
+        "agent_version_id": str(agent_version_id),
         "api_key": getattr(org, "_plain_api_key", api_key if created_org and api_key else None),
         "capabilities": org.capabilities or [],
         "created_org": created_org,

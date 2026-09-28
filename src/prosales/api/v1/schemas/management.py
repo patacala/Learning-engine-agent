@@ -43,6 +43,7 @@ class BootstrapTenantRequest(BaseModel):
 class BootstrapTenantResponse(BaseModel):
     org_id: UUID
     slug: str
+    agent_version_id: UUID
     api_key: str | None = None
     capabilities: list[str] = Field(default_factory=list)
     created_org: bool

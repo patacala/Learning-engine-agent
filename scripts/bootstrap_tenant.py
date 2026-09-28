@@ -58,6 +58,7 @@ async def _run(args: argparse.Namespace) -> None:
 
     print("\n=== Tenant bootstrap complete ===")
     print(f"  Organization : {result['slug']}  (id={result['org_id']})")
+    print(f"  Agent version: {result['agent_version_id']}")
     print(f"  Org created  : {result['created_org']}   Agent created: {result['created_agent']}")
     print(f"  Capabilities : {', '.join(result['capabilities']) or '(none)'}")
     if result["strategy_topup"] is not None:
