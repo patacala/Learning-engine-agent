@@ -15,6 +15,7 @@ class AgentContext(BaseModel):
     organization_id: UUID | None = None
     organization_name: str = ""
     org_capabilities: list[str] = Field(default_factory=list)
+    timezone: str = "UTC"  # IANA name; "UTC" when organization_id is None (no tenant)
 
     agent_id: UUID
     agent_version_id: UUID

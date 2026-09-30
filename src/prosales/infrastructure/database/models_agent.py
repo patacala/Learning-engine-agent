@@ -22,6 +22,9 @@ class OrganizationModel(Base):
     api_key_prefix: Mapped[str] = mapped_column(String(8), nullable=False)
     capabilities: Mapped[list] = mapped_column(JSONB, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # IANA tz name (e.g. "America/New_York") — grounds "current date/time" in
+    # prompts to where this dealership actually is, instead of a fixed guess.
+    timezone: Mapped[str] = mapped_column(String(64), default="America/New_York")
     # CRM integration (POST /crm/inbound callback): base URL + API key to call
     # back the CRM's /ai/tools/execute (e.g. tool="send_message"), and the
     # automation-agent id that call is attributed to on the CRM side.

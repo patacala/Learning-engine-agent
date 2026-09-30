@@ -1,5 +1,7 @@
 import logging
+from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from prosales.core.interfaces.engine import BaseEngine
 from prosales.infrastructure.llm.provider import LLMMessage
@@ -146,6 +148,18 @@ class PromptBuilder(BaseEngine):
         # from system_msg above: same content sent to the model, just grouped
         # with the other things that change every turn instead of poisoning
         # the static prefix.
+        # Current date/time — dynamic per-turn (belongs in context_msg, not the
+        # cacheable system_msg). The LLM has no clock of its own; without this
+        # it guesses a date near its training cutoff instead of "now".
+        now_utc = datetime.now(UTC)
+        org_tz_name = ctx.timezone if ctx else "UTC"
+        datetime_str = f"Current date/time (UTC): {now_utc.strftime('%Y-%m-%d %H:%M')}"
+        if org_tz_name != "UTC":
+            now_local = now_utc.astimezone(ZoneInfo(org_tz_name))
+            datetime_str += (
+                f"\nCurrent date/time ({org_tz_name}): {now_local.strftime('%Y-%m-%d %H:%M %Z')}"
+            )
+
         facts_str = ""
         if context and context.critical_facts:
             facts_str = "Client facts:\n" + "\n".join(
@@ -165,6 +179,7 @@ class PromptBuilder(BaseEngine):
             knowledge=knowledge_str,
             conversation_summary=summary_str,
         ).strip()
+        context_msg = f"{datetime_str}\n{context_msg}".strip()
         if mood_str:
             context_msg = f"{context_msg}\n{mood_str}".strip()
         if strategy_str:

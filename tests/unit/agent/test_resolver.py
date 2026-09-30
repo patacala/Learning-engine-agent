@@ -35,6 +35,7 @@ def _make_org_row(org_id=None, api_key="sk-orgsl-1234567890ab"):
     row.api_key_prefix = api_key[:8]
     row.capabilities = ["knowledge", "inventory"]
     row.is_active = True
+    row.timezone = "America/New_York"
     return row
 
 

@@ -49,7 +49,7 @@ async def test_retriever_called_with_agent_and_injected():
     avid = uuid4()
     state = {
         "current_message": "Hola",
-        "agent_context": SimpleNamespace(agent_version_id=avid),
+        "agent_context": SimpleNamespace(agent_version_id=avid, timezone="UTC"),
         "strategy": SimpleNamespace(strategy_type="consultive", tactic_instruction=""),
     }
     result = await PromptBuilder(pattern_retriever=FakeRetriever()).process(state)
@@ -68,7 +68,7 @@ async def test_retriever_failure_is_non_fatal():
 
     state = {
         "current_message": "Hola",
-        "agent_context": SimpleNamespace(agent_version_id=uuid4()),
+        "agent_context": SimpleNamespace(agent_version_id=uuid4(), timezone="UTC"),
     }
     # Should not raise; reply still built.
     result = await PromptBuilder(pattern_retriever=BoomRetriever()).process(state)

@@ -290,6 +290,7 @@ async def create_organization(
     slug: str,
     api_key: str | None = None,
     capabilities_preset: str = "full",
+    timezone: str = "America/New_York",
 ) -> OrganizationModel:
     """Create a lightweight organization (tenant for data isolation)."""
     capabilities = ORG_CAPABILITY_PRESETS.get(capabilities_preset, ORG_CAPABILITY_PRESETS["full"])
@@ -304,6 +305,7 @@ async def create_organization(
         api_key_hash=hash_api_key(api_key),
         api_key_prefix=api_key_prefix(api_key),
         capabilities=capabilities,
+        timezone=timezone,
     )
     org._plain_api_key = api_key  # transient: returned once by provisioning/bootstrap
     session.add(org)
