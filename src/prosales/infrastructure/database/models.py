@@ -85,6 +85,10 @@ class MessageModel(Base):
 
 
 class KnowledgeDocumentModel(Base):
+    """Source document: title/category/full original content/metadata, for
+    display and re-chunking. Does NOT carry an embedding itself — retrieval
+    happens at the KnowledgeChunkModel level (see engines/knowledge/chunker.py)."""
+
     __tablename__ = "knowledge_documents"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -93,8 +97,36 @@ class KnowledgeDocumentModel(Base):
     content: Mapped[str] = mapped_column(Text)
     category: Mapped[str] = mapped_column(String(100))
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
-    embedding = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    chunks: Mapped[list["KnowledgeChunkModel"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class KnowledgeChunkModel(Base):
+    """One retrieval unit: a small, structure-aware slice of a
+    KnowledgeDocumentModel's content, contextualized (Anthropic's Contextual
+    Retrieval) and embedded individually. See engines/knowledge/chunker.py
+    and engines/knowledge/contextualizer.py."""
+
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"), index=True
+    )
+    # Denormalized from the parent document at insert time so retrieval can
+    # filter by org without a join on the hot path (matches the
+    # organization_id-on-every-tenant-row convention used elsewhere).
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organizations.id"), nullable=True, index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    embedding = mapped_column(Vector(1536), nullable=True)
+    token_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    document: Mapped["KnowledgeDocumentModel"] = relationship(back_populates="chunks")
 
 
 class EventModel(Base):

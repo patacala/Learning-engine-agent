@@ -24,42 +24,63 @@ class PGVectorStore:
         return await self.search_by_embedding(query_embedding, top_k)
 
     async def search_by_embedding(
-        self, query_embedding: list[float], top_k: int = 5
+        self, query_embedding: list[float], top_k: int = 5, per_document_limit: int = 2
     ) -> list[dict]:
-        """Search using a precomputed embedding (avoids re-embedding the query)."""
+        """Search chunks using a precomputed embedding (avoids re-embedding
+        the query). Over-fetches a wider candidate pool (top_k * 3) ordered
+        by distance, then walks it keeping at most `per_document_limit`
+        chunks per parent document, so a single dense source document can't
+        occupy every result slot."""
         embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
 
         # Tenant isolation:
         # - Tenant context sees its own docs plus global/template docs.
         # - No tenant context sees only global docs. Never fall back to all docs.
-        where_clauses = ["embedding IS NOT NULL"]
-        params = {"embedding": embedding_str, "limit": top_k}
+        where_clauses = ["c.embedding IS NOT NULL"]
+        params = {"embedding": embedding_str, "limit": top_k * 3}
 
         if self.organization_id is not None:
-            where_clauses.append("(organization_id = :organization_id OR organization_id IS NULL)")
+            where_clauses.append(
+                "(c.organization_id = :organization_id OR c.organization_id IS NULL)"
+            )
             params["organization_id"] = str(self.organization_id)
         else:
-            where_clauses.append("organization_id IS NULL")
+            where_clauses.append("c.organization_id IS NULL")
 
         where_sql = " AND ".join(where_clauses)
         stmt = text(f"""
-            SELECT id, title, content, category, metadata,
-                   embedding <=> CAST(:embedding AS vector) AS distance
-            FROM knowledge_documents
+            SELECT c.id AS chunk_id, c.document_id AS document_id, c.chunk_index,
+                   d.title, c.content, d.category, d.metadata,
+                   c.embedding <=> CAST(:embedding AS vector) AS distance
+            FROM knowledge_chunks c
+            JOIN knowledge_documents d ON d.id = c.document_id
             WHERE {where_sql}
             ORDER BY distance
             LIMIT :limit
         """)
         result = await self.session.execute(stmt, params)
         rows = result.fetchall()
-        return [
-            {
-                "id": str(row.id),
-                "title": row.title,
-                "content": row.content,
-                "category": row.category,
-                "metadata": row.metadata,
-                "distance": row.distance,
-            }
-            for row in rows
-        ]
+
+        per_doc_count: dict[str, int] = {}
+        out: list[dict] = []
+        for row in rows:
+            doc_id = str(row.document_id)
+            if per_doc_count.get(doc_id, 0) >= per_document_limit:
+                continue
+            per_doc_count[doc_id] = per_doc_count.get(doc_id, 0) + 1
+            out.append(
+                {
+                    "id": str(row.chunk_id),
+                    "document_id": doc_id,
+                    "chunk_index": row.chunk_index,
+                    "title": row.title,
+                    "content": row.content,
+                    "category": row.category,
+                    "metadata": row.metadata,
+                    "distance": row.distance,
+                }
+            )
+            if len(out) >= top_k:
+                break
+
+        return out

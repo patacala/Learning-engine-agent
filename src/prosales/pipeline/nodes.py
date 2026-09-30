@@ -127,7 +127,7 @@ def _knowledge_event_factory(state: CognitivePipelineState, result: dict) -> Dom
         top_distance = first.get("distance") if isinstance(first, dict) else getattr(first, "distance", None)
     return KnowledgeRetrieved(data={
         "query": knowledge.query_used if hasattr(knowledge, "query_used") else "",
-        "num_documents": len(docs),
+        "num_chunks": len(docs),
         "top_distance": top_distance,
     })
 

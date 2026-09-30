@@ -99,7 +99,10 @@ async def get_agent_brain(
             "words_prefer": identity.words_prefer or [],
         }
 
-    # Knowledge counts by category
+    # Knowledge counts by category — counts parent documents, not chunks.
+    # KnowledgeDocumentModel stays one row per source document even after
+    # chunking (see engines/knowledge/chunker.py, knowledge_chunks table).
+    # Do not point this at KnowledgeChunkModel.
     knowledge_stmt = (
         select(
             KnowledgeDocumentModel.category,

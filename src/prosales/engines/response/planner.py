@@ -23,11 +23,20 @@ class ResponsePlanner(BaseEngine):
         if plan and plan.next_action:
             response_plan.main_point = plan.next_action.description
 
-        # Supporting points from knowledge
+        # Supporting points from knowledge — chunks are already small and
+        # relevant by construction (retrieval enforces top_k + a per-document
+        # dedup cap upstream, see PGVectorStore.search_by_embedding), so no
+        # manual top-2 slice or 200-char truncation here. That combination
+        # used to cut business-critical facts (e.g. a Saturday business-hours
+        # line) mid-sentence, forcing the LLM to "complete" a fact it was
+        # never fully given — confirmed root cause of a production
+        # hallucination bug. If the retrieved-content budget ever needs to
+        # shrink, the fix is lowering KnowledgeEngine's top_k, not truncating
+        # here again.
         if knowledge and knowledge.documents:
-            for doc in knowledge.documents[:2]:
+            for doc in knowledge.documents:
                 response_plan.supporting_points.append(
-                    f"{doc.get('title', '')}: {doc.get('content', '')[:200]}"
+                    f"{doc.get('title', '')}: {doc.get('content', '')}"
                 )
 
         # Call to action from decision

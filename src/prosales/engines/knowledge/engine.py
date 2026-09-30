@@ -34,7 +34,7 @@ class KnowledgeEngine(BaseEngine):
                 if embedding is None:
                     embedding = await store.embed(message)
                     updates["message_embedding"] = embedding
-                documents = await store.search_by_embedding(embedding, top_k=3)
+                documents = await store.search_by_embedding(embedding, top_k=6)
             result = KnowledgeResult(documents=documents, query_used=message)
         except Exception:
             logger.exception("Knowledge retrieval failed")

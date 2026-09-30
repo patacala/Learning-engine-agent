@@ -261,7 +261,7 @@ def _build_debug(result: dict) -> TestDebugInfo:
             debug.knowledge_retrieved.append(
                 RetrievedDocument(
                     title=doc.get("title", ""),
-                    excerpt=(doc.get("content", "") or "")[:200],
+                    excerpt=doc.get("content", "") or "",
                     category=doc.get("category", ""),
                     source=doc.get("source", "permanent"),
                     distance=doc.get("distance"),

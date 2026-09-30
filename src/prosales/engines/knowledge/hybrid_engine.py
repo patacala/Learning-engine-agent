@@ -30,7 +30,7 @@ class HybridKnowledgeEngine(BaseEngine):
         permanent_store: PGVectorStore,
         temporary_store: TemporaryVectorStore,
         agent_version_id: UUID,
-        top_k: int = 3,
+        top_k: int = 6,
     ):
         self.permanent_store = permanent_store
         self.temporary_store = temporary_store

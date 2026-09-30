@@ -63,7 +63,7 @@ async def test_knowledge_engine_reuses_embedding_already_in_state():
         })
 
     store.embed.assert_not_called()
-    store.search_by_embedding.assert_awaited_once_with([0.9, 0.9, 0.9], top_k=3)
+    store.search_by_embedding.assert_awaited_once_with([0.9, 0.9, 0.9], top_k=6)
     # Didn't compute a new one, so it shouldn't re-announce it either.
     assert "message_embedding" not in result
 

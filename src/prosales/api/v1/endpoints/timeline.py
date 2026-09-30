@@ -24,8 +24,8 @@ def _summarize_event(event_type: str, data: dict) -> str:
             sentiment = data.get("sentiment", "neutral")
             return f"Intent: {intent} ({confidence:.2f}), Sentiment: {sentiment}"
         case "knowledge.retrieved":
-            num = data.get("num_documents", 0)
-            return f"Retrieved {num} documents"
+            num = data.get("num_chunks", 0)
+            return f"Retrieved {num} chunks"
         case "decision.made":
             actions = data.get("actions", [])
             total = data.get("total_rules_evaluated", 0)
