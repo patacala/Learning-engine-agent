@@ -31,6 +31,12 @@ class CognitivePipelineState(TypedDict, total=False):
     # Agent context
     agent_context: AgentContext | None
 
+    # Per-agent lead-qualification schema (which fields to capture, how they map
+    # to the CRM, which are required to book). Resolved once per turn; read by
+    # the extractor (what to extract), the prompt (what's still missing to ask),
+    # and the scheduling gate. A QualificationSchema (or None if unresolved).
+    qualification_schema: Any
+
     # External context supplied by the caller (e.g. the CRM's /crm/inbound
     # payload: contact profile, upcoming_appointments, payment_services,
     # timezone). Read-only reference data the pipeline injects into the prompt

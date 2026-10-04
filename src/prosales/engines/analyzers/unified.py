@@ -30,7 +30,7 @@ from prosales.core.models.analysis import (
     SentimentResult,
     StageResult,
 )
-from prosales.engines.analyzers.contact_signals import VALID_SIGNALS
+from prosales.engines.analyzers.contact_signals import VALID_SIGNALS, build_facts_instruction
 from prosales.infrastructure.llm.provider import LLMMessage, LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ Stages válidos: opening, discovery, presentation, objection_handling, negotiati
 --- contact_signals ---
 Sos un calificador de leads. Detectá SEÑALES universales de venta y HECHOS estructurados. No inventes.
 Señales válidas (usa solo estas): positive_interest, appointment_requested, ready_to_buy, budget_confirmed, decision_maker, asked_for_quote, price_objection, comparing_competitors, needs_more_info, wants_followup, not_interested
-Hechos (facts): objeto con datos concretos si aparecen, ej: {{"product_interest": "...", "budget": "...", "timeline": "...", "decision_role": "...", "location": "..."}}. Omite lo que no se mencione.
+{facts_instruction}
 buying_intent: 0.0-1.0 (qué tan cerca de comprar suena)."""
 
 
@@ -139,6 +139,9 @@ class UnifiedAnalyzer:
         if context and context.get("recent_messages"):
             ctx_str = "\n".join(f"{m.role}: {m.content}" for m in context["recent_messages"][-5:])
 
+        facts_instruction = build_facts_instruction(
+            context.get("qualification_schema") if context else None
+        )
         try:
             result = await self.llm.complete_json(
                 messages=[
@@ -146,7 +149,12 @@ class UnifiedAnalyzer:
                         role="system",
                         content="Sos un analizador de conversaciones de ventas. Respondés solo JSON.",
                     ),
-                    LLMMessage(role="user", content=UNIFIED_PROMPT.format(message=text, context=ctx_str)),
+                    LLMMessage(
+                        role="user",
+                        content=UNIFIED_PROMPT.format(
+                            message=text, context=ctx_str, facts_instruction=facts_instruction
+                        ),
+                    ),
                 ],
                 model=self.model,
             )

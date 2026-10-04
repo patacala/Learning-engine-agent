@@ -52,7 +52,10 @@ Rules:
 - strategy_type MUST be from the list above. Do not invent new ones.
 - Write everything in the language the brief is written in (match the brief).
 - Keep it concise but complete: 2-5 strategies, 3-6 rules.
-- prompt_instruction must be an actionable instruction to the agent."""
+- prompt_instruction must be an actionable instruction to the agent.
+- If the brief mentions reservations, deposits, or paying to secure a product
+  or appointment, include a closing tactic that persuades the client to reserve
+  with a payment once they're ready (the agent has a payment-link action)."""
 
 
 class BriefExtractor:

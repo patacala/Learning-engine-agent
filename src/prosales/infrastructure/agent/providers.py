@@ -14,12 +14,14 @@ from prosales.core.models.agent import (
     AgentVoiceConfig,
 )
 from prosales.core.models.identity import AgentIdentity
+from prosales.core.models.qualification_schema import QualificationSchema, default_schema
 from prosales.engines.identity_learning.models import AgentStyleProfile
 from prosales.infrastructure.cache.redis import RedisCache
 from prosales.infrastructure.database.models_agent import (
     AgentIdentityModel,
     AgentPersonalityModel,
     AgentPromptTemplateModel,
+    AgentQualificationSchemaModel,
     AgentRuleModel,
     AgentStrategyModel,
     AgentVoiceModel,
@@ -267,3 +269,25 @@ class AgentVoiceProvider(_BaseProvider):
         )
         await self._set_cached(cache_key, config.model_dump())
         return config
+
+
+class AgentQualificationProvider(_BaseProvider):
+    """Loads the per-agent qualification schema. Unlike other providers this
+    NEVER returns None — an agent with no custom schema gets the sensible
+    default, so extraction/asking/scheduling always have a schema to work with."""
+
+    async def get(self, agent_version_id: UUID) -> QualificationSchema:
+        cache_key = f"agent_version:{agent_version_id}:qualification"
+        cached = await self._get_cached(cache_key)
+        if cached is not None:
+            return QualificationSchema(**cached)
+
+        stmt = select(AgentQualificationSchemaModel).where(
+            AgentQualificationSchemaModel.agent_version_id == agent_version_id
+        )
+        result = await self._execute(stmt)
+        row = result.scalar_one_or_none()
+
+        schema = QualificationSchema(fields=row.fields) if row and row.fields else default_schema()
+        await self._set_cached(cache_key, schema.model_dump())
+        return schema

@@ -29,6 +29,7 @@ class ContactQualificationEngine:
         prior: ContactQualification,
         analysis: AnalysisResult,
         conversation_outcome: str = "open",
+        sticky_keys: set[str] | None = None,
     ) -> ContactQualification:
         cs = analysis.contact_signals
         intent = analysis.intent.intent
@@ -49,11 +50,12 @@ class ContactQualificationEngine:
             signals[s] = signals.get(s, 0) + 1
 
         # --- accumulate facts (new overrides, except sticky ones) ---
+        sticky = sticky_keys if sticky_keys is not None else _STICKY_FACTS
         facts = dict(prior.facts)
         for k, v in (cs.facts or {}).items():
             if not v:
                 continue
-            if k in _STICKY_FACTS and facts.get(k):
+            if k in sticky and facts.get(k):
                 continue  # keep the first-captured value (see _STICKY_FACTS)
             facts[k] = v
 

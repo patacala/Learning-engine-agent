@@ -7,6 +7,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from prosales.core.models.qualification_schema import default_schema
 from prosales.services.crm_tools import (
     CRMToolExecutor,
     qualification_to_contact_update,
@@ -46,36 +47,61 @@ def test_inject_skips_tools_without_injection():
     assert merged == {"from": "a", "to": "b"}  # no IDs forced in
 
 
-def test_qualification_mapping_uses_crm_leadscore_keys():
+def test_qualification_mapping_service_and_product_are_distinct():
+    schema = default_schema()
     update = qualification_to_contact_update(
         {
             "temperature": "hot",
             "status": "qualified",
-            "readiness": 0.8,
-            "bant": {"authority": True, "budget": True, "timeline": False, "need": True},
+            "bant": {"authority": True, "budget": True, "timeline": True, "need": True},
             "signals": ["positive_interest"],
-            "facts": {"product_interest": "Audi A5"},
+            "facts": {
+                "product_interest": "Audi A5",
+                "service_needed": "financiamiento",
+                "full_name": "Peter Barranco",
+                "email": "p@b.com",
+            },
             "suggested_transition": "advance",
-        }
+        },
+        schema=schema,
+        analysis_summary={"intent": "inquiry", "sentiment": "positive"},
     )
     cf = update["custom_fields"]
-    # Keys the CRM's applyLeadScoreSignals actually reads.
-    assert cf["urgency_level"] == "high"  # hot -> high tier
+    assert cf["product_interest"] == "Audi A5"
+    assert cf["service_needed"] == "financiamiento"  # distinct, not aliased
     assert cf["is_decision_maker"] is True
     assert cf["has_budget"] is True
-    assert cf["service_needed"] == "Audi A5"
-    assert cf["product_interest"] == "Audi A5"
-    assert update["lead_score"] == 80
-    assert update["ai_insights"]["temperature"] == "hot"
+    # Native contact fields routed top-level, name split.
+    assert update["first_name"] == "Peter"
+    assert update["last_name"] == "Barranco"
+    assert update["email"] == "p@b.com"
+    assert update["ai_insights"]["intent"] == "inquiry"
+    assert "lead_score" not in update  # CRM computes it from custom_fields
 
 
-def test_qualification_mapping_cold_contact():
-    update = qualification_to_contact_update(
-        {"temperature": "cold", "bant": {}, "facts": {}, "readiness": 0.1}
+def test_urgency_from_purchase_timeline_not_temperature():
+    schema = default_schema()
+    # Hot lead but buying "in 3 months" → urgency low (score not inflated).
+    slow = qualification_to_contact_update(
+        {"temperature": "hot", "bant": {}, "facts": {"purchase_timeline": "en 3 meses"}},
+        schema=schema,
     )
-    assert update["custom_fields"]["urgency_level"] == "low"
-    assert "service_needed" not in update["custom_fields"]  # no product yet
-    assert update["lead_score"] == 10
+    assert slow["custom_fields"]["urgency_level"] == "low"
+    # Same hot lead buying "this week" → high.
+    fast = qualification_to_contact_update(
+        {"temperature": "hot", "bant": {}, "facts": {"purchase_timeline": "esta semana"}},
+        schema=schema,
+    )
+    assert fast["custom_fields"]["urgency_level"] == "high"
+
+
+def test_tags_union_with_existing():
+    update = qualification_to_contact_update(
+        {"temperature": "warm", "signals": ["price_objection", "appointment_requested"], "facts": {}},
+        existing_tags=["vip", "warm"],
+    )
+    tags = set(update["tags"])
+    assert {"vip", "warm", "objecion-precio", "pidio-cita"} <= tags  # human 'vip' preserved
 
 
 @pytest.mark.asyncio

@@ -73,6 +73,7 @@ class AgentVersionModel(Base):
     strategies: Mapped[list["AgentStrategyModel"]] = relationship(back_populates="agent_version")
     prompt_templates: Mapped[list["AgentPromptTemplateModel"]] = relationship(back_populates="agent_version")
     voice: Mapped["AgentVoiceModel | None"] = relationship(back_populates="agent_version", uselist=False)
+    qualification_schema: Mapped["AgentQualificationSchemaModel | None"] = relationship(back_populates="agent_version", uselist=False)
     assignments: Mapped[list["OrganizationAgentModel"]] = relationship(back_populates="agent_version")
 
 
@@ -201,6 +202,26 @@ class AgentVoiceModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     agent_version: Mapped["AgentVersionModel"] = relationship(back_populates="voice")
+
+
+class AgentQualificationSchemaModel(Base):
+    """Per-agent, configurable lead-qualification schema: which fields the agent
+    should capture, how they map to the CRM, and which are required before
+    booking. Drives extraction (ContactSignalDetector), the "ask for missing
+    data" prompt block, the scheduling gate, and the CRM push mapping. One row
+    per version; `fields` is the ordered list of field definitions."""
+
+    __tablename__ = "agent_qualification_schema"
+    __table_args__ = (UniqueConstraint("agent_version_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_versions.id", ondelete="CASCADE"), nullable=False)
+    # list[ {key,label,type,options,ask_priority,required_for_scheduling,crm_field,sticky,enabled} ]
+    fields: Mapped[list] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    agent_version: Mapped["AgentVersionModel"] = relationship(back_populates="qualification_schema")
 
 
 class OrganizationAgentModel(Base):

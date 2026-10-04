@@ -131,54 +131,149 @@ TOOL_SPECS: list[dict] = [
 
 _SPECS_BY_NAME = {s["name"]: s for s in TOOL_SPECS}
 
-# ProSales temperature → the CRM's urgency_level tier (it scores lead_score from
-# urgency_level via URGENCY_SCORE). Lets a hotter contact raise its score — and
-# thus move its card — automatically on the CRM side.
-_TEMPERATURE_TO_URGENCY = {"hot": "high", "warm": "medium", "cold": "low"}
+# Native CRM contact fields (everything else lands in custom_fields).
+_NATIVE_CONTACT_FIELDS = {"first_name", "last_name", "full_name", "email", "phone"}
+
+# Cognitive signal → human-readable tag the CRM can filter/segment on.
+_SIGNAL_TAGS = {
+    "positive_interest": "interesado",
+    "appointment_requested": "pidio-cita",
+    "ready_to_buy": "listo-para-comprar",
+    "budget_confirmed": "presupuesto-confirmado",
+    "decision_maker": "decision-maker",
+    "asked_for_quote": "pidio-cotizacion",
+    "price_objection": "objecion-precio",
+    "comparing_competitors": "compara-competencia",
+    "needs_more_info": "necesita-info",
+    "wants_followup": "seguimiento",
+    "not_interested": "no-interesado",
+}
+
+_URGENCY_HIGH = ("asap", "ya", "hoy", "today", "now", "ahora", "esta semana",
+                 "this week", "urgente", "inmediato", "immediately")
+_URGENCY_MEDIUM = ("este mes", "this month", "pronto", "soon", "próxima semana",
+                   "next week", "quincena", "15 días", "dos semanas")
 
 
-def qualification_to_contact_update(qual: dict) -> dict:
-    """Map ProSales' funnel-agnostic qualification (ContactQualification.to_public)
-    to the CRM's update_contact input.
+def _purchase_urgency(timeline: str | None) -> str:
+    """Classify the PURCHASE timeline (when they plan to buy — not the
+    appointment date) into the CRM's urgency_level tier. Unknown → low, so an
+    unqualified lead doesn't get an inflated score."""
+    if not timeline:
+        return "low"
+    t = str(timeline).lower()
+    if any(k in t for k in _URGENCY_HIGH):
+        return "high"
+    if any(k in t for k in _URGENCY_MEDIUM):
+        return "medium"
+    return "low"
 
-    ``custom_fields`` uses the exact keys the CRM's lead_score recompute reads
-    (urgency_level, is_decision_maker, has_budget, timeline, service_needed) so
-    the contact's card moves through the funnel on the CRM's own rules.
-    ``ai_insights`` carries the richer cognitive read (shallow-merged by the CRM).
-    product_interest is sticky upstream, so it's safe to forward every turn.
+
+def _derive_tags(qual: dict) -> list[str]:
+    tags: list[str] = []
+    temperature = qual.get("temperature")
+    if temperature:
+        tags.append(temperature)  # hot | warm | cold
+    for sig in qual.get("signals") or []:
+        if sig in _SIGNAL_TAGS:
+            tags.append(_SIGNAL_TAGS[sig])
+    return sorted(set(tags))
+
+
+def qualification_to_contact_update(
+    qual: dict,
+    schema=None,
+    analysis_summary: dict | None = None,
+    existing_tags: list[str] | None = None,
+) -> dict:
+    """Map ProSales' qualification (ContactQualification.to_public) to the CRM's
+    update_contact input.
+
+    - When a ``schema`` (QualificationSchema) is given, each captured fact is
+      routed to its configured CRM target: native contact fields (name/email/
+      phone) go top-level, the rest into ``custom_fields``. This keeps
+      ``service_needed`` and ``product_interest`` as DISTINCT fields.
+    - ``urgency_level`` is derived from the PURCHASE timeline, not temperature,
+      so the CRM's lead_score is driven by real BANT + buying urgency (we do NOT
+      push an inflated lead_score; the CRM recomputes it from these custom_fields).
+    - ``ai_insights`` carries summary/intent/sentiment (fills the CRM's "RESUMEN
+      IA" and improves its next-action), shallow-merged by the CRM.
+    - ``tags`` unions derived segment tags with the contact's existing tags so
+      human-added tags aren't wiped (the CRM replaces the tags array on update).
     """
     bant = qual.get("bant") or {}
     facts = qual.get("facts") or {}
-    temperature = qual.get("temperature", "cold")
+    analysis_summary = analysis_summary or {}
 
-    custom_fields: dict = {
-        "urgency_level": _TEMPERATURE_TO_URGENCY.get(temperature, "low"),
-        "is_decision_maker": bool(bant.get("authority")),
-        "has_budget": bool(bant.get("budget")),
-    }
-    timeline = facts.get("timeline")
-    if timeline or bant.get("timeline"):
-        custom_fields["timeline"] = timeline or "yes"
-    product_interest = facts.get("product_interest")
-    if product_interest:
-        custom_fields["service_needed"] = product_interest
-        custom_fields["product_interest"] = product_interest
+    update: dict = {}
+    custom_fields: dict = {}
 
-    update: dict = {
-        "custom_fields": custom_fields,
-        "ai_insights": {
-            "temperature": temperature,
-            "status": qual.get("status"),
-            "readiness": qual.get("readiness"),
-            "bant": bant,
-            "signals": qual.get("signals"),
-            "suggested_transition": qual.get("suggested_transition"),
-        },
+    fields = schema.enabled_fields() if schema is not None else None
+    if fields:
+        for f in fields:
+            value = facts.get(f.key)
+            if value in (None, ""):
+                continue
+            target = f.target()
+            if target == "full_name":
+                parts = str(value).split(" ", 1)
+                update["first_name"] = parts[0]
+                if len(parts) > 1:
+                    update["last_name"] = parts[1]
+            elif target in _NATIVE_CONTACT_FIELDS:
+                update[target] = value
+            else:
+                custom_fields[target] = value
+    else:
+        # Legacy (no schema): keep product/service and timeline from facts.
+        if facts.get("product_interest"):
+            custom_fields["product_interest"] = facts["product_interest"]
+        if facts.get("service_needed"):
+            custom_fields["service_needed"] = facts["service_needed"]
+
+    # BANT booleans the CRM scores on (derived, not raw facts).
+    custom_fields["is_decision_maker"] = bool(bant.get("authority"))
+    custom_fields["has_budget"] = bool(bant.get("budget"))
+    # urgency_level from the purchase timeline (facts), NOT temperature.
+    custom_fields["urgency_level"] = _purchase_urgency(
+        facts.get("purchase_timeline") or facts.get("timeline")
+    )
+
+    update["custom_fields"] = custom_fields
+    update["ai_insights"] = {
+        "summary": _build_summary(qual, facts),
+        "intent": analysis_summary.get("intent"),
+        "sentiment": analysis_summary.get("sentiment"),
+        "temperature": qual.get("temperature"),
+        "status": qual.get("status"),
+        "readiness": qual.get("readiness"),
+        "bant": bant,
+        "signals": qual.get("signals"),
+        "suggested_transition": qual.get("suggested_transition"),
     }
-    readiness = qual.get("readiness")
-    if isinstance(readiness, (int, float)):
-        update["lead_score"] = int(round(readiness * 100))
+
+    derived = _derive_tags(qual)
+    update["tags"] = sorted(set(derived) | set(existing_tags or []))
     return update
+
+
+def _build_summary(qual: dict, facts: dict) -> str:
+    """A compact, deterministic recap for the CRM's "RESUMEN IA" — built from
+    captured facts (free, multilingual since it echoes the captured values)."""
+    bits: list[str] = []
+    if facts.get("product_interest"):
+        bits.append(f"Interés: {facts['product_interest']}")
+    if facts.get("service_needed"):
+        bits.append(str(facts["service_needed"]))
+    if facts.get("purchase_timeline"):
+        bits.append(f"compra: {facts['purchase_timeline']}")
+    if facts.get("budget") or facts.get("budget_amount"):
+        bits.append(f"presupuesto: {facts.get('budget_amount') or facts.get('budget')}")
+    temp = qual.get("temperature")
+    status = qual.get("status")
+    if temp or status:
+        bits.append(f"({temp or ''}{'/' + status if status else ''})".strip("/ "))
+    return " · ".join(b for b in bits if b)
 
 
 def tool_schemas() -> list[dict]:
@@ -203,12 +298,19 @@ class CRMToolExecutor:
         agent_id: str,
         conversation_id: UUID,
         contact_id: str | None,
+        required_fields: list[str] | None = None,
+        known_fields: set[str] | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.agent_id = agent_id
         self.conversation_id = str(conversation_id)
         self.contact_id = contact_id
+        # Scheduling gate: field keys that must be known before create_appointment,
+        # and the set already satisfied (seeded from the CRM contact + grown as the
+        # agent saves data via update_contact in this turn).
+        self.required_fields = list(required_fields or [])
+        self.known_fields = set(known_fields or [])
 
     @staticmethod
     def tool_schemas() -> list[dict]:
@@ -223,12 +325,28 @@ class CRMToolExecutor:
                 merged[field] = value
         return merged
 
+    def _missing_required(self) -> list[str]:
+        return [f for f in self.required_fields if f not in self.known_fields]
+
     async def execute(self, name: str, args: dict) -> dict:
         """Execute one tool. Returns the CRM's JSON result, or an ``{"error":
         ...}`` dict the loop can feed back to the model instead of crashing the
         whole turn (a failed tool should let the agent recover, not 500)."""
         if name not in _SPECS_BY_NAME:
             return {"error": f"unknown tool: {name}"}
+
+        # Scheduling gate: don't book until the required contact data is saved.
+        if name == "create_appointment":
+            missing = self._missing_required()
+            if missing:
+                return {
+                    "error": "missing_required_fields",
+                    "fields": missing,
+                    "message": (
+                        "Cannot book yet. First collect and save these fields "
+                        f"(via update_contact): {', '.join(missing)}."
+                    ),
+                }
 
         payload = {
             "agent_id": self.agent_id,
@@ -241,7 +359,7 @@ class CRMToolExecutor:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(url, json=payload, headers={"x-api-key": self.api_key})
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
         except httpx.HTTPStatusError as e:
             body = e.response.text[:500] if e.response is not None else ""
             logger.warning("CRM tool '%s' failed: %s %s", name, e, body)
@@ -249,3 +367,14 @@ class CRMToolExecutor:
         except Exception as e:  # noqa: BLE001 — a tool error must not kill the turn
             logger.warning("CRM tool '%s' error: %s", name, e)
             return {"error": f"tool '{name}' error: {e}"}
+
+        # When the agent saves contact data, mark those fields satisfied so the
+        # scheduling gate opens within the same turn.
+        if name == "update_contact":
+            if args.get("email"):
+                self.known_fields.add("email")
+            if args.get("phone"):
+                self.known_fields.add("phone")
+            if args.get("first_name") or args.get("last_name"):
+                self.known_fields.add("full_name")
+        return result

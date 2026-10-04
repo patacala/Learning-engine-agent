@@ -42,6 +42,7 @@ from prosales.infrastructure.database.connection import async_session_factory
 from prosales.infrastructure.database.models import ConversationModel
 from prosales.infrastructure.database.models_agent import OrganizationModel
 from prosales.infrastructure.database.repositories.client import SQLClientRepository
+from prosales.infrastructure.agent.providers import AgentQualificationProvider
 from prosales.infrastructure.database.repositories.conversation import SQLConversationRepository
 from prosales.services.crm_tools import CRMToolExecutor, qualification_to_contact_update
 from prosales.services.live_learning import spawn_live_learning
@@ -104,33 +105,65 @@ def _org_has_crm(org: OrganizationModel | None) -> bool:
     return bool(org and org.crm_base_url and org.crm_api_key and org.crm_agent_id)
 
 
+def _seed_known_fields(schema, contact: dict | None) -> set[str]:
+    """Mark required fields the CRM already has for this contact as satisfied, so
+    the scheduling gate doesn't ask for data we already know (name/email/phone)."""
+    known: set[str] = set()
+    if schema is None or not contact:
+        return known
+    for f in schema.required_for_scheduling():
+        target = f.target()
+        if target == "email" and contact.get("email"):
+            known.add(f.key)
+        elif target == "phone" and contact.get("phone"):
+            known.add(f.key)
+        elif target == "full_name" and contact.get("first_name"):
+            known.add(f.key)
+    return known
+
+
 def _build_executor(
-    org: OrganizationModel | None, conversation_id: UUID, contact_id: str | None
+    org: OrganizationModel | None,
+    conversation_id: UUID,
+    contact_id: str | None,
+    schema=None,
+    contact: dict | None = None,
 ) -> CRMToolExecutor | None:
     """One executor for both the in-turn tool loop and the qualification push —
     needs only CRM connectivity. Capability gating for the tool loop is applied
     separately (see _run_pipeline_and_reply); the push is always allowed when
-    there's connectivity."""
+    there's connectivity. When a schema is given, seeds the scheduling gate."""
     if not _org_has_crm(org):
         return None
+    required = [f.key for f in schema.required_for_scheduling()] if schema is not None else []
     return CRMToolExecutor(
         base_url=org.crm_base_url,
         api_key=org.crm_api_key,
         agent_id=org.crm_agent_id,
         conversation_id=conversation_id,
         contact_id=contact_id,
+        required_fields=required,
+        known_fields=_seed_known_fields(schema, contact),
     )
 
 
 async def _push_qualification(
-    executor: CRMToolExecutor, cache, contact_id: str | None, qual_public: dict
+    executor: CRMToolExecutor,
+    cache,
+    contact_id: str | None,
+    qual_public: dict,
+    schema=None,
+    analysis_summary: dict | None = None,
+    existing_tags: list[str] | None = None,
 ) -> None:
     """Push the cognitive qualification to the CRM via update_contact, but only
     when it changed since the last push for this contact (dedup via Redis) — the
     CRM is kept fresh without a redundant write every single turn."""
     if not contact_id or not qual_public:
         return
-    update = qualification_to_contact_update(qual_public)
+    update = qualification_to_contact_update(
+        qual_public, schema=schema, analysis_summary=analysis_summary, existing_tags=existing_tags
+    )
     signature = json.dumps(update, sort_keys=True, default=str)
     key = f"crm:qual:{contact_id}"
     try:
@@ -188,12 +221,26 @@ async def _run_pipeline_and_reply(
 ) -> None:
     cache = get_redis_cache()
     org = await _load_org(organization_id)
-    executor = _build_executor(org, conversation_id, contact_id)
+
+    # Resolve the qualification schema once; shared by the pipeline (extraction/
+    # asking/gate) and the CRM push mapping.
+    schema = None
+    if agent_context.agent_version_id:
+        try:
+            schema = await AgentQualificationProvider(async_session_factory, cache=cache).get(
+                agent_context.agent_version_id
+            )
+        except Exception as e:  # noqa: BLE001 — schema is best-effort
+            logger.warning("Qualification schema resolve failed: %s", e)
+
+    contact = (extra_context or {}).get("contact") if isinstance(extra_context, dict) else None
+    executor = _build_executor(org, conversation_id, contact_id, schema=schema, contact=contact)
     # The in-turn Action Layer additionally requires the capability; the
     # qualification push below only needs CRM connectivity.
     tool_executor = (
         executor if (executor and agent_context.has_capability(ACTIONS_CAPABILITY)) else None
     )
+
     try:
         runner = PipelineRunner(async_session_factory, cache=cache)
         result = await runner.run(
@@ -204,6 +251,7 @@ async def _run_pipeline_and_reply(
             store_user_message=True,
             extra_context=extra_context,
             tool_executor=tool_executor,
+            qualification_schema=schema,
         )
     except Exception as e:
         logger.error("CRM inbound pipeline error: %s\n%s", e, traceback.format_exc())
@@ -215,7 +263,12 @@ async def _run_pipeline_and_reply(
     await _send_reply_to_crm(org, conversation_id, result.response)
 
     if executor:
-        await _push_qualification(executor, cache, contact_id, result.contact_qualification)
+        existing_tags = (extra_context or {}).get("contact", {})
+        existing_tags = existing_tags.get("tags") if isinstance(existing_tags, dict) else None
+        await _push_qualification(
+            executor, cache, contact_id, result.contact_qualification,
+            schema=schema, analysis_summary=result.analysis_summary, existing_tags=existing_tags,
+        )
 
 
 # --- Message debounce (coalesce rapid messages into one turn) ---------------

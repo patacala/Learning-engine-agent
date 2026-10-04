@@ -50,6 +50,10 @@ class AnalyzerOrchestrator(BaseEngine):
         context = {}
         if state.get("context"):
             context["recent_messages"] = state["context"].recent_messages
+        # Schema-aware extraction: the contact-signal detector extracts exactly
+        # the agent's configured qualification fields (see build_facts_instruction).
+        if state.get("qualification_schema") is not None:
+            context["qualification_schema"] = state["qualification_schema"]
 
         analysis = AnalysisResult()
 

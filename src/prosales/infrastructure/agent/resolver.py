@@ -28,10 +28,31 @@ async def invalidate_agent_context(cache: RedisCache, api_key: str) -> None:
     await cache.delete(f"agent_ctx:apikey:{digest}")
 
 
+# Component suffixes the per-engine providers cache under
+# `agent_version:{id}:<component>` (see infrastructure/agent/providers.py).
+_AGENT_VERSION_CACHE_COMPONENTS = (
+    "identity",
+    "style",
+    "personality",
+    "rules",
+    "strategies",
+    "prompts",
+    "voice",
+    "qualification",
+)
+
+
 async def invalidate_agent_version_cache(cache: RedisCache, agent_version_id: UUID) -> None:
-    """Invalidate cached data for an agent version (provider caches)."""
-    key = f"agent_version:{agent_version_id}"
-    await cache.delete(key)
+    """Invalidate cached data for an agent version (provider caches).
+
+    Each provider caches under `agent_version:{id}:<component>`, so we must clear
+    every component key — deleting the bare `agent_version:{id}` key alone would
+    leave the per-engine caches stale until their TTL expired.
+    """
+    base = f"agent_version:{agent_version_id}"
+    await cache.delete(base)
+    for component in _AGENT_VERSION_CACHE_COMPONENTS:
+        await cache.delete(f"{base}:{component}")
 
 
 async def resolve_agent_version_for_org(

@@ -40,6 +40,7 @@ from prosales.api.v1.schemas.management import (
 )
 from prosales.channels.voice.outbound import OutboundCallService
 from prosales.config import settings
+from prosales.core.models.qualification_schema import QualificationField, default_schema
 from prosales.di.container import create_llm_provider
 from prosales.engines.knowledge.indexer import index_document
 from prosales.services.brief_extractor import BriefExtractor
@@ -51,6 +52,7 @@ from prosales.infrastructure.database.models_agent import (
     AgentIdentityModel,
     AgentModel,
     AgentPersonalityModel,
+    AgentQualificationSchemaModel,
     AgentRuleModel,
     AgentStrategyModel,
     AgentTacticModel,
@@ -189,6 +191,21 @@ async def _persist_strategies(session: AsyncSession, version_id: uuid.UUID, body
                 prompt_instruction=tactic.prompt_instruction,
                 position=tactic.position,
             ))
+    await session.flush()
+
+
+async def _persist_qualification(
+    session: AsyncSession, version_id: uuid.UUID, fields: list[QualificationField]
+) -> None:
+    await session.execute(
+        delete(AgentQualificationSchemaModel).where(
+            AgentQualificationSchemaModel.agent_version_id == version_id
+        )
+    )
+    session.add(AgentQualificationSchemaModel(
+        agent_version_id=version_id,
+        fields=[f.model_dump() for f in fields],
+    ))
     await session.flush()
 
 
@@ -561,11 +578,56 @@ async def configure_from_brief(
     await _persist_personality(session, version_id, generated.personality)
     await _persist_rules(session, version_id, generated.rules)
     await _persist_strategies(session, version_id, generated.strategies)
+    # Seed a default qualification schema so the Qualification tab is pre-filled;
+    # the user refines it there. (Only when one isn't configured yet.)
+    existing_qual = (
+        await session.execute(
+            select(AgentQualificationSchemaModel.id).where(
+                AgentQualificationSchemaModel.agent_version_id == version_id
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_qual is None:
+        await _persist_qualification(session, version_id, default_schema().fields)
     version.brief = body.brief  # keep the source for re-generation/editing
     await session.flush()
 
     await invalidate_agent_version_cache(cache, version_id)
     return generated
+
+
+# --- Qualification schema (what the agent captures from a lead) ---
+
+@router.get("/versions/{version_id}/qualification")
+async def get_qualification(
+    version_id: uuid.UUID,
+    org: OrganizationModel = Depends(get_authenticated_org),
+) -> list[QualificationField]:
+    session = await _get_session_from_org(org)
+    await _verify_version_belongs_to_org(session, version_id, org.id)
+
+    stmt = select(AgentQualificationSchemaModel).where(
+        AgentQualificationSchemaModel.agent_version_id == version_id
+    )
+    row = (await session.execute(stmt)).scalar_one_or_none()
+    if row is None or not row.fields:
+        # No custom schema yet → return the default so the UI shows a starting point.
+        return default_schema().fields
+    return [QualificationField(**f) for f in row.fields]
+
+
+@router.put("/versions/{version_id}/qualification")
+async def put_qualification(
+    version_id: uuid.UUID,
+    body: list[QualificationField],
+    org: OrganizationModel = Depends(get_authenticated_org),
+    cache: RedisCache = Depends(get_redis_cache),
+) -> list[QualificationField]:
+    session = await _get_session_from_org(org)
+    await _verify_version_belongs_to_org(session, version_id, org.id)
+    await _persist_qualification(session, version_id, body)
+    await invalidate_agent_version_cache(cache, version_id)
+    return body
 
 
 # --- Personality ---

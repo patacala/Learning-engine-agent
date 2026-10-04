@@ -192,6 +192,14 @@ class PromptBuilder(BaseEngine):
         if external_str:
             context_msg = f"{context_msg}\n{external_str}".strip()
 
+        missing_str = self._format_missing_fields(state)
+        if missing_str:
+            context_msg = f"{context_msg}\n{missing_str}".strip()
+
+        actions_str = self._format_actions_hint(state)
+        if actions_str:
+            context_msg = f"{context_msg}\n{actions_str}".strip()
+
         # Build messages
         messages = [LLMMessage(role="system", content=system_msg)]
 
@@ -340,6 +348,74 @@ class PromptBuilder(BaseEngine):
         if not lines:
             return ""
         return "EXTERNAL CONTEXT (from CRM, already known — don't re-ask):\n" + "\n".join(lines)
+
+    def _format_actions_hint(self, state: dict[str, Any]) -> str:
+        """When the Action Layer is active (the agent can call CRM tools), tell
+        it it may close by reserving with a payment — the user's requirement to
+        persuade the client to pay to hold a product or secure an appointment.
+        Only shown when tools are actually available this turn."""
+        if state.get("tool_executor") is None:
+            return ""
+        return (
+            "ACTIONS: You can check real availability and book appointments. When "
+            "the client is genuinely interested and a specific product or slot is "
+            "chosen, you may offer a payment link to reserve/secure it "
+            "(list_payment_services then create_payment_link) — frame it as "
+            "securing their spot or holding the unit, naturally, never pushily."
+        )
+
+    def _format_missing_fields(self, state: dict[str, Any]) -> str:
+        """Tell the agent which qualification fields it still needs — early ones
+        (name/email/phone) first — so it collects them proactively but WITH TACT
+        (the user's requirement: ask gradually, don't interrogate, don't rush
+        info that could push the lead out of a higher level). Fields already
+        captured, or already known to the CRM, are excluded so it never re-asks.
+        """
+        schema = state.get("qualification_schema")
+        if schema is None:
+            return ""
+        try:
+            fields = schema.enabled_fields()
+        except AttributeError:
+            return ""
+        if not fields:
+            return ""
+
+        captured: set[str] = set()
+        memory = state.get("memory")
+        if memory is not None and getattr(memory, "semantic", None):
+            captured |= {f.key for f in memory.semantic.facts}
+        analysis = state.get("analysis")
+        if analysis is not None and getattr(analysis, "contact_signals", None):
+            captured |= set((analysis.contact_signals.facts or {}).keys())
+        contact = (state.get("extra_context") or {}).get("contact") or {}
+        if contact.get("email"):
+            captured.add("email")
+        if contact.get("phone"):
+            captured.add("phone")
+        if contact.get("first_name"):
+            captured.add("full_name")
+
+        missing = [f for f in fields if f.key not in captured]
+        if not missing:
+            return ""
+        early = [f for f in missing if f.ask_priority == "early"]
+        rest = [f for f in missing if f.ask_priority != "early"]
+        ordered = early + rest
+        labels = ", ".join(f.label for f in ordered[:6])
+        required_missing = [f.label for f in missing if f.required_for_scheduling]
+
+        lines = [
+            "DATA TO CAPTURE (ask gently, a bit at a time — never interrogate, "
+            "never rush or overwhelm the client; prioritize moving the "
+            "relationship forward over collecting everything at once):",
+            f"- Still missing: {labels}",
+        ]
+        if required_missing:
+            lines.append(
+                f"- Required before booking an appointment: {', '.join(required_missing)}"
+            )
+        return "\n".join(lines)
 
     def _append_learning(self, base: str, learning_ctx) -> str:
         """Append proven plays / winning & anti expressions / behavior rules."""

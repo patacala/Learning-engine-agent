@@ -18,6 +18,7 @@ from prosales.infrastructure.agent.providers import (
     AgentIdentityProvider,
     AgentPersonalityProvider,
     AgentPromptProvider,
+    AgentQualificationProvider,
     AgentRuleProvider,
     AgentStrategyProvider,
     AgentVoiceProvider,
@@ -135,6 +136,7 @@ class PipelineRunner:
         on_token: Callable[[str], Awaitable[None]] | None = None,
         extra_context: dict | None = None,
         tool_executor=None,
+        qualification_schema=None,
     ) -> PipelineResult:
         """Run the cognitive pipeline and return a structured result.
 
@@ -154,6 +156,17 @@ class PipelineRunner:
         slots, book appointments, etc. via the CRM. Omitted → text-only.
         """
         compiled = self._get_compiled_graph(has_providers=bool(agent_context and self.cache))
+
+        # Resolve the per-agent qualification schema once (cache-backed) and put
+        # it on state so extraction/asking/scheduling share one schema. Callers
+        # that already resolved it (crm_inbound, to also build the tool gate)
+        # pass it in to avoid a second lookup.
+        if qualification_schema is None and agent_context and agent_context.agent_version_id:
+            try:
+                provider = AgentQualificationProvider(self._sf, cache=self.cache)
+                qualification_schema = await provider.get(agent_context.agent_version_id)
+            except Exception as e:  # noqa: BLE001 — schema is best-effort, never block a reply
+                logger.warning("Qualification schema resolve failed: %s", e)
 
         execution = PipelineExecution(
             conversation_id=conversation_id,
@@ -175,6 +188,7 @@ class PipelineRunner:
             "stream_callback": on_token,
             "extra_context": extra_context,
             "tool_executor": tool_executor,
+            "qualification_schema": qualification_schema,
         }
 
         result = await compiled.ainvoke(initial_state)
