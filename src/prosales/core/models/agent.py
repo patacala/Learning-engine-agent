@@ -49,10 +49,10 @@ class AgentPersonalityConfig(BaseModel):
     """Personality config loaded by PersonalityProvider."""
 
     brand_traits: list[str] = Field(default_factory=list)
-    brand_tone: str = "Profesional y cercano"
+    brand_tone: str = "Professional and approachable"
     brand_instructions: list[str] = Field(default_factory=list)
     voice_traits: list[str] = Field(default_factory=list)
-    voice_tone: str = "Natural y conversacional"
+    voice_tone: str = "Natural and conversational"
     voice_instructions: list[str] = Field(default_factory=list)
 
 

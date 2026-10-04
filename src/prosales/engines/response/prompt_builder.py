@@ -55,7 +55,7 @@ class PromptBuilder(BaseEngine):
         # further down; see personality.py's compile_static_*/compile_emotion_*
         # split (Fase 4 latency: OpenAI prompt caching needs an exact-matching
         # prefix, which mixing emotion in here used to break almost immediately).
-        tone = personality.compile_static_tone() if personality else "Profesional y cercano"
+        tone = personality.compile_static_tone() if personality else "Professional and approachable"
         instructions = personality.compile_static_instructions() if personality else []
         personality_str = "\n".join(f"- {i}" for i in instructions) if instructions else "Be helpful"
 
@@ -132,7 +132,7 @@ class PromptBuilder(BaseEngine):
         strategy_str = ""
         has_matching_play = bool(learning_ctx and learning_ctx.proven_plays)
         if strategy and strategy.tactic_instruction and not has_matching_play:
-            strategy_str = f"\nSTRATEGY (punto de partida genérico): {strategy.tactic_instruction}"
+            strategy_str = f"\nSTRATEGY (generic starting point): {strategy.tactic_instruction}"
 
         # system_msg is now STATIC ONLY (no strategy/plan/mood/learning — those
         # are per-turn and vary every time, see below) so it stays byte-identical
@@ -187,6 +187,10 @@ class PromptBuilder(BaseEngine):
         if plan_str:
             context_msg = f"{context_msg}\n{plan_str}".strip()
         context_msg = self._append_learning(context_msg, learning_ctx)
+
+        external_str = self._format_external_context(state.get("extra_context"))
+        if external_str:
+            context_msg = f"{context_msg}\n{external_str}".strip()
 
         # Build messages
         messages = [LLMMessage(role="system", content=system_msg)]
@@ -286,6 +290,56 @@ class PromptBuilder(BaseEngine):
             parts.append(f"\nOUTPUT FORMAT:\n{output_tmpl}")
 
         return "\n".join(parts)
+
+    def _format_external_context(self, extra: dict | None) -> str:
+        """Render caller-supplied reference data (CRM contact, upcoming
+        appointments, payment services) as a readable per-turn block so the
+        agent doesn't re-ask for data it already has. Best-effort: tolerates
+        missing keys, never raises.
+        """
+        if not extra:
+            return ""
+
+        lines: list[str] = []
+
+        contact = extra.get("contact") or {}
+        if contact:
+            name = " ".join(
+                p for p in [contact.get("first_name"), contact.get("last_name")] if p
+            ).strip()
+            bits = []
+            if name:
+                bits.append(f"name: {name}")
+            if contact.get("lead_stage"):
+                bits.append(f"stage: {contact['lead_stage']}")
+            if contact.get("email"):
+                bits.append(f"email: {contact['email']}")
+            if contact.get("phone"):
+                bits.append(f"phone: {contact['phone']}")
+            if bits:
+                lines.append("Contact: " + ", ".join(bits))
+
+        appts = extra.get("upcoming_appointments") or []
+        if appts:
+            lines.append("Upcoming appointments:")
+            for a in appts:
+                label = a.get("title") or "appointment"
+                when = a.get("starts_at") or ""
+                status = a.get("status") or ""
+                lines.append(f"- {label} @ {when} ({status})".rstrip(" ()"))
+
+        services = extra.get("payment_services") or []
+        if services:
+            currency = extra.get("payment_currency", "")
+            lines.append("Payment services (bookable):")
+            for s in services:
+                amount = s.get("amount")
+                price = f" — {amount} {currency}".rstrip() if amount is not None else ""
+                lines.append(f"- {s.get('name', 'service')}{price}")
+
+        if not lines:
+            return ""
+        return "EXTERNAL CONTEXT (from CRM, already known — don't re-ask):\n" + "\n".join(lines)
 
     def _append_learning(self, base: str, learning_ctx) -> str:
         """Append proven plays / winning & anti expressions / behavior rules."""

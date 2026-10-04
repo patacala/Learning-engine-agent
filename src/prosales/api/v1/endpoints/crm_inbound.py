@@ -17,13 +17,15 @@ Contract:
     path (agent_tool_executions row, `agent.tool.executed` event) instead of
     a special-cased direct send.
 
-Known limitation (not yet wired): the enriched context the CRM sends
-(contact profile, upcoming_appointments, payment_services) isn't fed into
-the pipeline yet — PipelineRunner.run() has no extra-context parameter today.
-For now it's available in the request for whoever needs it later; the
-pipeline runs off the message text alone, same as /conversation/message.
+The enriched context the CRM sends (contact profile, upcoming_appointments,
+payment_services) is passed through to the pipeline as read-only reference
+data via PipelineRunner.run(extra_context=...): the prompt injects it so the
+agent doesn't re-ask for known data, and the tool loop uses it to ground
+scheduling/payment actions.
 """
 
+import asyncio
+import json
 import logging
 import traceback
 from uuid import UUID
@@ -33,6 +35,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from sqlalchemy import select
 
 from prosales.api.v1.dependencies import get_redis_cache, require_agent_context
+from prosales.config import settings
 from prosales.api.v1.schemas.crm_inbound import CRMInboundRequest
 from prosales.core.models.agent import AgentContext
 from prosales.infrastructure.database.connection import async_session_factory
@@ -40,6 +43,7 @@ from prosales.infrastructure.database.models import ConversationModel
 from prosales.infrastructure.database.models_agent import OrganizationModel
 from prosales.infrastructure.database.repositories.client import SQLClientRepository
 from prosales.infrastructure.database.repositories.conversation import SQLConversationRepository
+from prosales.services.crm_tools import CRMToolExecutor, qualification_to_contact_update
 from prosales.services.live_learning import spawn_live_learning
 from prosales.services.pipeline_runner import PipelineRunner
 
@@ -81,21 +85,78 @@ async def _resolve_client_and_conversation(
             return client.id, conversation.id
 
 
-async def _send_reply_to_crm(organization_id: UUID, conversation_id: UUID, content: str) -> None:
-    """Deliver the generated reply via the CRM's own tool-execution contract
-    (tool="send_message") — never a direct/special-cased HTTP call.
-    """
+# Capability that unlocks the in-turn Action Layer (CRM tool-calling). Reuses
+# the existing org-level "appointment" capability from ORG_CAPABILITY_PRESETS
+# rather than inventing a new vocabulary word.
+ACTIONS_CAPABILITY = "appointment"
+
+
+async def _load_org(organization_id: UUID) -> OrganizationModel | None:
     async with async_session_factory() as session:
-        org = (
+        return (
             await session.execute(
                 select(OrganizationModel).where(OrganizationModel.id == organization_id)
             )
         ).scalar_one_or_none()
 
-    if not org or not org.crm_base_url or not org.crm_api_key or not org.crm_agent_id:
+
+def _org_has_crm(org: OrganizationModel | None) -> bool:
+    return bool(org and org.crm_base_url and org.crm_api_key and org.crm_agent_id)
+
+
+def _build_executor(
+    org: OrganizationModel | None, conversation_id: UUID, contact_id: str | None
+) -> CRMToolExecutor | None:
+    """One executor for both the in-turn tool loop and the qualification push —
+    needs only CRM connectivity. Capability gating for the tool loop is applied
+    separately (see _run_pipeline_and_reply); the push is always allowed when
+    there's connectivity."""
+    if not _org_has_crm(org):
+        return None
+    return CRMToolExecutor(
+        base_url=org.crm_base_url,
+        api_key=org.crm_api_key,
+        agent_id=org.crm_agent_id,
+        conversation_id=conversation_id,
+        contact_id=contact_id,
+    )
+
+
+async def _push_qualification(
+    executor: CRMToolExecutor, cache, contact_id: str | None, qual_public: dict
+) -> None:
+    """Push the cognitive qualification to the CRM via update_contact, but only
+    when it changed since the last push for this contact (dedup via Redis) — the
+    CRM is kept fresh without a redundant write every single turn."""
+    if not contact_id or not qual_public:
+        return
+    update = qualification_to_contact_update(qual_public)
+    signature = json.dumps(update, sort_keys=True, default=str)
+    key = f"crm:qual:{contact_id}"
+    try:
+        if cache and await cache.get(key) == signature:
+            return  # unchanged since last push
+    except Exception:  # noqa: BLE001 — cache outage must not block the push
+        pass
+
+    result = await executor.execute("update_contact", update)
+    if cache and not result.get("error"):
+        try:
+            await cache.set(key, signature, ttl=86400)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+async def _send_reply_to_crm(
+    org: OrganizationModel | None, conversation_id: UUID, content: str
+) -> None:
+    """Deliver the generated reply via the CRM's own tool-execution contract
+    (tool="send_message") — never a direct/special-cased HTTP call.
+    """
+    if not _org_has_crm(org):
         logger.warning(
-            "CRM callback skipped for org %s — crm_base_url/crm_api_key/crm_agent_id not set",
-            organization_id,
+            "CRM callback skipped — crm_base_url/crm_api_key/crm_agent_id not set for org %s",
+            getattr(org, "id", None),
         )
         return
 
@@ -113,7 +174,7 @@ async def _send_reply_to_crm(organization_id: UUID, conversation_id: UUID, conte
             )
             resp.raise_for_status()
     except Exception as e:
-        logger.error("CRM send_message callback failed for org %s: %s", organization_id, e)
+        logger.error("CRM send_message callback failed for org %s: %s", org.id, e)
 
 
 async def _run_pipeline_and_reply(
@@ -122,8 +183,17 @@ async def _run_pipeline_and_reply(
     conversation_id: UUID,
     agent_context: AgentContext,
     organization_id: UUID,
+    extra_context: dict | None = None,
+    contact_id: str | None = None,
 ) -> None:
     cache = get_redis_cache()
+    org = await _load_org(organization_id)
+    executor = _build_executor(org, conversation_id, contact_id)
+    # The in-turn Action Layer additionally requires the capability; the
+    # qualification push below only needs CRM connectivity.
+    tool_executor = (
+        executor if (executor and agent_context.has_capability(ACTIONS_CAPABILITY)) else None
+    )
     try:
         runner = PipelineRunner(async_session_factory, cache=cache)
         result = await runner.run(
@@ -132,6 +202,8 @@ async def _run_pipeline_and_reply(
             conversation_id=conversation_id,
             agent_context=agent_context,
             store_user_message=True,
+            extra_context=extra_context,
+            tool_executor=tool_executor,
         )
     except Exception as e:
         logger.error("CRM inbound pipeline error: %s\n%s", e, traceback.format_exc())
@@ -140,7 +212,53 @@ async def _run_pipeline_and_reply(
     if result.qualification_terminal:
         spawn_live_learning(conversation_id)
 
-    await _send_reply_to_crm(organization_id, conversation_id, result.response)
+    await _send_reply_to_crm(org, conversation_id, result.response)
+
+    if executor:
+        await _push_qualification(executor, cache, contact_id, result.contact_qualification)
+
+
+# --- Message debounce (coalesce rapid messages into one turn) ---------------
+# In-process per-conversation timers; the message texts themselves live in Redis
+# (durable, and atomically drained). Multi-worker caveat: timers are per-process
+# so coalescing is best-effort across workers, but list_drain's atomicity still
+# guarantees the same messages are never processed twice. A cross-worker Redis
+# scheduler is the upgrade path if this proves insufficient.
+_debounce_tasks: dict[str, asyncio.Task] = {}
+
+
+def _buffer_key(conversation_id: UUID) -> str:
+    return f"crm:buf:{conversation_id}"
+
+
+async def _debounce_and_run(
+    conversation_id: UUID,
+    client_id: UUID,
+    agent_context: AgentContext,
+    organization_id: UUID,
+    extra_context: dict | None,
+    contact_id: str | None,
+) -> None:
+    """Wait out the quiet-window; a newer message cancels this task and starts
+    its own. When the window elapses undisturbed, drain every buffered message
+    for the conversation and run the pipeline once on the combined text."""
+    try:
+        await asyncio.sleep(settings.crm_debounce_seconds)
+    except asyncio.CancelledError:
+        return  # superseded by a newer message — it owns the buffer now
+    _debounce_tasks.pop(str(conversation_id), None)
+    try:
+        cache = get_redis_cache()
+        buffered = await cache.list_drain(_buffer_key(conversation_id))
+        if not buffered:
+            return
+        combined = "\n".join(buffered)
+        await _run_pipeline_and_reply(
+            combined, client_id, conversation_id, agent_context,
+            organization_id, extra_context, contact_id,
+        )
+    except Exception as e:  # noqa: BLE001 — a detached task must log, not vanish
+        logger.error("CRM debounce run error: %s\n%s", e, traceback.format_exc())
 
 
 @router.post("/inbound", status_code=202)
@@ -149,8 +267,9 @@ async def crm_inbound(
     background_tasks: BackgroundTasks,
     x_api_key: str | None = Header(None),
 ):
-    """Fast-ACK webhook target — runs the pipeline in the background and
-    delivers the reply via the CRM's own send_message tool when it's ready.
+    """Fast-ACK webhook target — ACKs immediately, then (after a short
+    debounce window that coalesces rapid messages) runs the pipeline in the
+    background and delivers the reply via the CRM's own send_message tool.
     """
     async with async_session_factory() as session:
         agent_context = await require_agent_context(session, x_api_key)
@@ -160,13 +279,47 @@ async def crm_inbound(
 
     client_id, conversation_id = await _resolve_client_and_conversation(body, agent_context)
 
-    background_tasks.add_task(
-        _run_pipeline_and_reply,
-        body.payload.message,
-        client_id,
-        conversation_id,
-        agent_context,
-        agent_context.organization_id,
+    extra_context = {
+        "contact": body.contact.model_dump() if body.contact else None,
+        "upcoming_appointments": [a.model_dump() for a in body.upcoming_appointments],
+        "payment_services": [s.model_dump() for s in body.payment_services],
+        "payment_currency": body.payment_currency,
+        "channel": body.payload.channel,
+    }
+
+    if settings.crm_debounce_seconds <= 0:
+        # Debounce disabled: one message = one run, immediately.
+        background_tasks.add_task(
+            _run_pipeline_and_reply,
+            body.payload.message,
+            client_id,
+            conversation_id,
+            agent_context,
+            agent_context.organization_id,
+            extra_context,
+            body.contact_id,
+        )
+        return {"status": "accepted", "conversation_id": str(conversation_id)}
+
+    # Buffer this message and (re)arm the quiet-window timer — a newer message
+    # within the window cancels the pending run and restarts it, so the agent
+    # answers the whole thought at once instead of each fragment.
+    cache = get_redis_cache()
+    key = str(conversation_id)
+    await cache.list_push(_buffer_key(conversation_id), body.payload.message)
+
+    existing = _debounce_tasks.get(key)
+    if existing and not existing.done():
+        existing.cancel()
+    _debounce_tasks[key] = asyncio.create_task(
+        _debounce_and_run(
+            conversation_id,
+            client_id,
+            agent_context,
+            agent_context.organization_id,
+            extra_context,
+            body.contact_id,
+        )
     )
 
-    return {"status": "accepted", "conversation_id": str(conversation_id)}
+    return {"status": "accepted", "conversation_id": key}

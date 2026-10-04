@@ -20,6 +20,8 @@ from prosales.api.v1.schemas.management import (
     AgentResponse,
     AssignAgentRequest,
     AssignmentResponse,
+    BriefRequest,
+    BriefResponse,
     CreateAgentRequest,
     CreateVersionRequest,
     CrmIntegrationRequest,
@@ -38,7 +40,9 @@ from prosales.api.v1.schemas.management import (
 )
 from prosales.channels.voice.outbound import OutboundCallService
 from prosales.config import settings
+from prosales.di.container import create_llm_provider
 from prosales.engines.knowledge.indexer import index_document
+from prosales.services.brief_extractor import BriefExtractor
 from prosales.infrastructure.agent.resolver import invalidate_agent_context, invalidate_agent_version_cache
 from prosales.infrastructure.agent.templates import assign_agent_to_org, create_agent_from_template
 from prosales.infrastructure.cache.redis import RedisCache
@@ -100,6 +104,92 @@ async def _verify_version_belongs_to_org(session: AsyncSession, version_id: uuid
     if version is None:
         raise HTTPException(status_code=404, detail="Version not found in this organization")
     return version
+
+
+# --- Config persist helpers (shared by the PUT handlers and from-brief) ---
+# Each is bulk-replace: delete the version's existing rows, insert from payload.
+
+async def _persist_identity(session: AsyncSession, version_id: uuid.UUID, body: IdentityPayload) -> None:
+    await session.execute(
+        delete(AgentIdentityModel).where(AgentIdentityModel.agent_version_id == version_id)
+    )
+    session.add(AgentIdentityModel(
+        agent_version_id=version_id,
+        name=body.name,
+        description=body.description,
+        communication_style=body.communication_style,
+        compliance_notes=body.compliance_notes,
+        principles=body.principles,
+        beliefs=body.beliefs,
+        values_list=body.values,
+        words_never_use=body.words_never_use,
+        words_prefer=body.words_prefer,
+    ))
+    await session.flush()
+
+
+async def _persist_personality(session: AsyncSession, version_id: uuid.UUID, body: PersonalityPayload) -> None:
+    await session.execute(
+        delete(AgentPersonalityModel).where(AgentPersonalityModel.agent_version_id == version_id)
+    )
+    session.add(AgentPersonalityModel(
+        agent_version_id=version_id,
+        brand_traits=body.brand_traits,
+        brand_tone=body.brand_tone,
+        brand_instructions=body.brand_instructions,
+        voice_traits=body.voice_traits,
+        voice_tone=body.voice_tone,
+        voice_instructions=body.voice_instructions,
+    ))
+    await session.flush()
+
+
+async def _persist_rules(session: AsyncSession, version_id: uuid.UUID, body: list[RulePayload]) -> None:
+    await session.execute(
+        delete(AgentRuleModel).where(AgentRuleModel.agent_version_id == version_id)
+    )
+    for rule in body:
+        session.add(AgentRuleModel(
+            agent_version_id=version_id,
+            rule_id=rule.rule_id,
+            intent=rule.intent,
+            sentiment=rule.sentiment,
+            urgency=rule.urgency,
+            action_type=rule.action_type,
+            action_params=rule.action_params,
+            priority=rule.priority,
+        ))
+    await session.flush()
+
+
+async def _persist_strategies(session: AsyncSession, version_id: uuid.UUID, body: list[StrategyPayload]) -> None:
+    # Delete existing (tactics first, then strategies).
+    existing_ids = (
+        select(AgentStrategyModel.id).where(AgentStrategyModel.agent_version_id == version_id)
+    )
+    await session.execute(delete(AgentTacticModel).where(AgentTacticModel.strategy_id.in_(existing_ids)))
+    await session.execute(delete(AgentStrategyModel).where(AgentStrategyModel.agent_version_id == version_id))
+
+    for strat in body:
+        new_strat = AgentStrategyModel(
+            agent_version_id=version_id,
+            strategy_type=strat.strategy_type,
+            name=strat.name,
+            description=strat.description,
+            triggers=strat.triggers,
+            priority=strat.priority,
+            cooldown_seconds=strat.cooldown_seconds,
+        )
+        session.add(new_strat)
+        await session.flush()
+        for tactic in strat.tactics:
+            session.add(AgentTacticModel(
+                strategy_id=new_strat.id,
+                name=tactic.name,
+                prompt_instruction=tactic.prompt_instruction,
+                position=tactic.position,
+            ))
+    await session.flush()
 
 
 def _agent_response(agent: AgentModel, latest_version: AgentVersionModel | None = None) -> AgentResponse:
@@ -443,27 +533,39 @@ async def put_identity(
 ) -> IdentityPayload:
     session = await _get_session_from_org(org)
     await _verify_version_belongs_to_org(session, version_id, org.id)
-
-    # Delete existing
-    await session.execute(
-        delete(AgentIdentityModel).where(AgentIdentityModel.agent_version_id == version_id)
-    )
-
-    session.add(AgentIdentityModel(
-        agent_version_id=version_id,
-        name=body.name,
-        description=body.description,
-        communication_style=body.communication_style,
-        compliance_notes=body.compliance_notes,
-        principles=body.principles,
-        beliefs=body.beliefs,
-        values_list=body.values,
-        words_never_use=body.words_never_use,
-        words_prefer=body.words_prefer,
-    ))
-    await session.flush()
+    await _persist_identity(session, version_id, body)
     await invalidate_agent_version_cache(cache, version_id)
     return body
+
+
+# --- Brief → full config (identity + personality + rules + strategies) ---
+
+@router.post("/versions/{version_id}/from-brief")
+async def configure_from_brief(
+    version_id: uuid.UUID,
+    body: BriefRequest,
+    org: OrganizationModel = Depends(get_authenticated_org),
+    cache: RedisCache = Depends(get_redis_cache),
+) -> BriefResponse:
+    """Generate and persist the whole config from a plain-language brief, so a
+    non-technical user never hand-edits strategy_type/cooldown/tactics. Returns
+    the generated config (also persisted) for a read-only summary in the CRM;
+    the per-section PUT endpoints remain available for fine edits afterwards."""
+    session = await _get_session_from_org(org)
+    version = await _verify_version_belongs_to_org(session, version_id, org.id)
+
+    extractor = BriefExtractor(create_llm_provider())
+    generated = await extractor.extract(body.brief)
+
+    await _persist_identity(session, version_id, generated.identity)
+    await _persist_personality(session, version_id, generated.personality)
+    await _persist_rules(session, version_id, generated.rules)
+    await _persist_strategies(session, version_id, generated.strategies)
+    version.brief = body.brief  # keep the source for re-generation/editing
+    await session.flush()
+
+    await invalidate_agent_version_cache(cache, version_id)
+    return generated
 
 
 # --- Personality ---
@@ -501,20 +603,7 @@ async def put_personality(
 ) -> PersonalityPayload:
     session = await _get_session_from_org(org)
     await _verify_version_belongs_to_org(session, version_id, org.id)
-
-    await session.execute(
-        delete(AgentPersonalityModel).where(AgentPersonalityModel.agent_version_id == version_id)
-    )
-    session.add(AgentPersonalityModel(
-        agent_version_id=version_id,
-        brand_traits=body.brand_traits,
-        brand_tone=body.brand_tone,
-        brand_instructions=body.brand_instructions,
-        voice_traits=body.voice_traits,
-        voice_tone=body.voice_tone,
-        voice_instructions=body.voice_instructions,
-    ))
-    await session.flush()
+    await _persist_personality(session, version_id, body)
     await invalidate_agent_version_cache(cache, version_id)
     return body
 
@@ -554,22 +643,7 @@ async def put_rules(
 ) -> list[RulePayload]:
     session = await _get_session_from_org(org)
     await _verify_version_belongs_to_org(session, version_id, org.id)
-
-    await session.execute(
-        delete(AgentRuleModel).where(AgentRuleModel.agent_version_id == version_id)
-    )
-    for rule in body:
-        session.add(AgentRuleModel(
-            agent_version_id=version_id,
-            rule_id=rule.rule_id,
-            intent=rule.intent,
-            sentiment=rule.sentiment,
-            urgency=rule.urgency,
-            action_type=rule.action_type,
-            action_params=rule.action_params,
-            priority=rule.priority,
-        ))
-    await session.flush()
+    await _persist_rules(session, version_id, body)
     await invalidate_agent_version_cache(cache, version_id)
     return body
 
@@ -616,36 +690,7 @@ async def put_strategies(
 ) -> list[StrategyPayload]:
     session = await _get_session_from_org(org)
     await _verify_version_belongs_to_org(session, version_id, org.id)
-
-    # Delete existing (tactics cascade via FK)
-    existing_ids = (
-        select(AgentStrategyModel.id)
-        .where(AgentStrategyModel.agent_version_id == version_id)
-    )
-    await session.execute(delete(AgentTacticModel).where(AgentTacticModel.strategy_id.in_(existing_ids)))
-    await session.execute(delete(AgentStrategyModel).where(AgentStrategyModel.agent_version_id == version_id))
-
-    for strat in body:
-        new_strat = AgentStrategyModel(
-            agent_version_id=version_id,
-            strategy_type=strat.strategy_type,
-            name=strat.name,
-            description=strat.description,
-            triggers=strat.triggers,
-            priority=strat.priority,
-            cooldown_seconds=strat.cooldown_seconds,
-        )
-        session.add(new_strat)
-        await session.flush()
-        for tactic in strat.tactics:
-            session.add(AgentTacticModel(
-                strategy_id=new_strat.id,
-                name=tactic.name,
-                prompt_instruction=tactic.prompt_instruction,
-                position=tactic.position,
-            ))
-
-    await session.flush()
+    await _persist_strategies(session, version_id, body)
     await invalidate_agent_version_cache(cache, version_id)
     return body
 

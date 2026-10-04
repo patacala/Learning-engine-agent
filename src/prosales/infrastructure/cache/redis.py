@@ -22,5 +22,22 @@ class RedisCache:
     async def delete(self, key: str) -> None:
         await self._redis.delete(key)
 
+    async def list_push(self, key: str, value: str, ttl: int = 300) -> None:
+        """Append to a Redis list (used by the CRM inbound debounce buffer).
+        The TTL is a safety net so an abandoned buffer self-expires."""
+        await self._redis.rpush(key, value)
+        await self._redis.expire(key, ttl)
+
+    async def list_drain(self, key: str) -> list[str]:
+        """Atomically read AND clear a list, returning its items in order. The
+        atomicity matters: with multiple web workers it guarantees only one
+        drains a given buffer — the others get an empty list and no-op, so the
+        same messages are never processed twice."""
+        async with self._redis.pipeline(transaction=True) as pipe:
+            pipe.lrange(key, 0, -1)
+            pipe.delete(key)
+            values, _ = await pipe.execute()
+        return values or []
+
     async def close(self) -> None:
         await self._redis.aclose()

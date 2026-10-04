@@ -123,10 +123,10 @@ class IdentityPayload(BaseModel):
 
 class PersonalityPayload(BaseModel):
     brand_traits: list[str] = Field(default_factory=list)
-    brand_tone: str = "Profesional y cercano"
+    brand_tone: str = "Professional and approachable"
     brand_instructions: list[str] = Field(default_factory=list)
     voice_traits: list[str] = Field(default_factory=list)
-    voice_tone: str = "Natural y conversacional"
+    voice_tone: str = "Natural and conversational"
     voice_instructions: list[str] = Field(default_factory=list)
 
 
@@ -161,6 +161,27 @@ class VoiceConfigPayload(BaseModel):
     backchannels_en: list[str] = Field(default_factory=lambda: ["I see", "sure"])
     backchannel_probability: float = 0.3
     enable_ssml: bool = True
+
+
+# --- Brief → config ---
+
+class BriefRequest(BaseModel):
+    """A plain-language description of the business/agent that the extractor
+    turns into the full config. The CRM collects this instead of making a
+    non-technical user hand-edit strategy_type/cooldown/tactics."""
+
+    brief: str
+
+
+class BriefResponse(BaseModel):
+    """What the brief was transformed into — persisted AND returned so the CRM
+    can show a human-readable, read-only summary (and still allow editing the
+    underlying payloads via the existing PUT endpoints)."""
+
+    identity: IdentityPayload
+    personality: PersonalityPayload
+    rules: list[RulePayload] = Field(default_factory=list)
+    strategies: list[StrategyPayload] = Field(default_factory=list)
 
 
 # --- Assignments ---

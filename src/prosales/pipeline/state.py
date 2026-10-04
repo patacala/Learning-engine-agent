@@ -31,6 +31,13 @@ class CognitivePipelineState(TypedDict, total=False):
     # Agent context
     agent_context: AgentContext | None
 
+    # External context supplied by the caller (e.g. the CRM's /crm/inbound
+    # payload: contact profile, upcoming_appointments, payment_services,
+    # timezone). Read-only reference data the pipeline injects into the prompt
+    # and the tool loop uses — never re-queried by an engine. Absent for the
+    # plain /conversation/message path.
+    extra_context: dict | None
+
     # Identity
     identity: AgentIdentity | None
 
@@ -81,6 +88,11 @@ class CognitivePipelineState(TypedDict, total=False):
     # of a single blocking complete() — everything downstream (post_process,
     # store, learn) is unaffected either way, it only ever sees the final text.
     stream_callback: Callable[[str], Awaitable[None]] | None
+    # In-turn Action Layer: a CRMToolExecutor the caller (crm_inbound) sets when
+    # the org has CRM connectivity + the capability. When present, llm_call runs
+    # a tool-use loop (LLM ⇄ CRM /ai/tools/execute) instead of a single
+    # completion. Absent → plain text-only completion, as before.
+    tool_executor: Any
     # Cognitive Learning Engine: what PromptBuilder retrieved/injected this
     # turn. Was previously computed and discarded — undeclared TypedDict keys
     # are silently dropped by LangGraph's state merging, so this MUST be

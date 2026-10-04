@@ -8,10 +8,21 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from prosales.api.v1.dependencies import verify_internal_or_api_key
 from prosales.api.v1.endpoints.episode import router
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v1")
+
+
+@pytest.fixture(autouse=True)
+def _bypass_auth():
+    """These tests exercise endpoint logic, not the auth gate (that's
+    test_auth.py). Bypass the router-level verify_internal_or_api_key so a
+    local .env with an internal token set doesn't 401 them."""
+    app.dependency_overrides[verify_internal_or_api_key] = lambda: None
+    yield
+    app.dependency_overrides.clear()
 
 
 def _mock_session():

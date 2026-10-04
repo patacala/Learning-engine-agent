@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
+    # CRM inbound debounce: quiet-window (seconds) to coalesce several rapid
+    # messages from the same conversation into one pipeline run. 0 disables it.
+    crm_debounce_seconds: float = 5.0
+
     # LLM Providers
     openai_api_key: str = ""
     anthropic_api_key: str = ""

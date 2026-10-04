@@ -3,7 +3,13 @@ from collections.abc import AsyncIterator
 
 from prosales.core.exceptions import LLMError
 from prosales.infrastructure.llm.clients import get_anthropic_client
-from prosales.infrastructure.llm.provider import LLMMessage, LLMProvider, LLMResponse
+from prosales.infrastructure.llm.provider import (
+    LLMMessage,
+    LLMProvider,
+    LLMResponse,
+    LLMToolResponse,
+    ToolCall,
+)
 
 
 class AnthropicProvider(LLMProvider):
@@ -87,6 +93,91 @@ class AnthropicProvider(LLMProvider):
                     }
         except Exception as e:
             raise LLMError(f"Anthropic stream error: {e}") from e
+
+    @staticmethod
+    def _split_messages(messages: list[LLMMessage]) -> tuple[str, list[dict]]:
+        """Split out the system prompt and map the rest to Anthropic content
+        blocks, translating assistant tool_calls (tool_use) and tool-result
+        messages (tool_result)."""
+        system_msg = ""
+        conv: list[dict] = []
+        for m in messages:
+            if m.role == "system":
+                system_msg = m.content
+            elif m.role == "assistant" and m.tool_calls:
+                blocks: list[dict] = []
+                if m.content:
+                    blocks.append({"type": "text", "text": m.content})
+                for tc in m.tool_calls:
+                    blocks.append(
+                        {"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.arguments}
+                    )
+                conv.append({"role": "assistant", "content": blocks})
+            elif m.role == "tool":
+                conv.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": m.tool_call_id,
+                                "content": m.content,
+                            }
+                        ],
+                    }
+                )
+            else:
+                conv.append({"role": m.role, "content": m.content})
+        return system_msg, conv
+
+    async def complete_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> LLMToolResponse:
+        try:
+            system_msg, conv_messages = self._split_messages(messages)
+            kwargs = {
+                "model": model or self.default_model,
+                "messages": conv_messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "tools": [
+                    {
+                        "name": t["name"],
+                        "description": t.get("description", ""),
+                        "input_schema": t.get("parameters", {"type": "object", "properties": {}}),
+                    }
+                    for t in tools
+                ],
+            }
+            if system_msg:
+                kwargs["system"] = system_msg
+
+            response = await self.client.messages.create(**kwargs)
+            content = ""
+            tool_calls = []
+            for block in response.content:
+                if block.type == "text":
+                    content += block.text
+                elif block.type == "tool_use":
+                    tool_calls.append(
+                        ToolCall(id=block.id, name=block.name, arguments=dict(block.input or {}))
+                    )
+            return LLMToolResponse(
+                content=content,
+                tool_calls=tool_calls,
+                model=response.model,
+                usage={
+                    "prompt_tokens": response.usage.input_tokens,
+                    "completion_tokens": response.usage.output_tokens,
+                },
+            )
+        except Exception as e:
+            raise LLMError(f"Anthropic tool-call error: {e}") from e
 
     async def complete_json(
         self,

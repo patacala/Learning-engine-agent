@@ -61,6 +61,9 @@ class AgentVersionModel(Base):
     version_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
     capabilities: Mapped[list] = mapped_column(JSONB, default=list)
+    # Original plain-language brief this version's config was generated from
+    # (POST .../from-brief). Kept so it can be shown/edited and re-generated.
+    brief: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     agent: Mapped["AgentModel"] = relationship(back_populates="versions")
@@ -101,10 +104,10 @@ class AgentPersonalityModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     agent_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agent_versions.id", ondelete="CASCADE"), nullable=False)
     brand_traits: Mapped[list] = mapped_column(JSONB, default=list)
-    brand_tone: Mapped[str] = mapped_column(String(255), default="Profesional y cercano")
+    brand_tone: Mapped[str] = mapped_column(String(255), default="Professional and approachable")
     brand_instructions: Mapped[list] = mapped_column(JSONB, default=list)
     voice_traits: Mapped[list] = mapped_column(JSONB, default=list)
-    voice_tone: Mapped[str] = mapped_column(String(255), default="Natural y conversacional")
+    voice_tone: Mapped[str] = mapped_column(String(255), default="Natural and conversational")
     voice_instructions: Mapped[list] = mapped_column(JSONB, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

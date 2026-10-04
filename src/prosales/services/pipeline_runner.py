@@ -133,6 +133,8 @@ class PipelineRunner:
         agent_context: AgentContext | None = None,
         store_user_message: bool = True,
         on_token: Callable[[str], Awaitable[None]] | None = None,
+        extra_context: dict | None = None,
+        tool_executor=None,
     ) -> PipelineResult:
         """Run the cognitive pipeline and return a structured result.
 
@@ -141,6 +143,15 @@ class PipelineRunner:
         the LLM — for a caller that wants to relay tokens to a client (e.g.
         POST /conversation/message/stream) while this still returns the same
         full PipelineResult at the end, same as without it.
+
+        ``extra_context``, when given, is read-only reference data from the
+        caller (e.g. the CRM's /crm/inbound payload: contact profile,
+        upcoming_appointments, payment_services). It's injected into the
+        prompt and made available to the tool loop; no engine re-queries it.
+
+        ``tool_executor``, when given (a CRMToolExecutor), turns on the in-turn
+        Action Layer: llm_call runs a tool-use loop so the agent can check
+        slots, book appointments, etc. via the CRM. Omitted → text-only.
         """
         compiled = self._get_compiled_graph(has_providers=bool(agent_context and self.cache))
 
@@ -162,6 +173,8 @@ class PipelineRunner:
             "agent_context": agent_context,
             "store_user_message": store_user_message,
             "stream_callback": on_token,
+            "extra_context": extra_context,
+            "tool_executor": tool_executor,
         }
 
         result = await compiled.ainvoke(initial_state)

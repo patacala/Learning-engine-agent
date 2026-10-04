@@ -85,6 +85,19 @@ def test_facts_merge_and_survive():
     assert q2.facts == {"product_interest": "Q4", "budget": "50k"}
 
 
+def test_product_interest_is_sticky_not_overwritten():
+    # Turn 1: customer asks about the Audi A5 — product_interest captured.
+    q1 = ENGINE.qualify(ContactQualification(), _a(Intent.INQUIRY, Sentiment.POSITIVE,
+                        ConversationStage.DISCOVERY, facts={"product_interest": "Audi A5"}))
+    # Turn 2: customer wants to schedule a visit; a noisy extraction tries to set
+    # product_interest to the scheduling intent. It must NOT clobber "Audi A5".
+    q2 = ENGINE.qualify(q1, _a(Intent.SCHEDULING, Sentiment.POSITIVE,
+                        ConversationStage.CLOSING,
+                        facts={"product_interest": "agendar visita", "timeline": "mañana"}))
+    assert q2.facts["product_interest"] == "Audi A5"
+    assert q2.facts["timeline"] == "mañana"  # non-sticky facts still update
+
+
 def test_to_public_shape():
     q = ContactQualification(signals={"positive_interest": 2, "budget_confirmed": 1})
     pub = q.to_public()

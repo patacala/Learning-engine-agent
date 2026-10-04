@@ -1,5 +1,6 @@
 """Node wrappers that connect engines to the LangGraph pipeline."""
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -28,10 +29,14 @@ from prosales.engines.learning.event_store import EventStore
 from prosales.infrastructure.database.models import MessageModel
 from prosales.infrastructure.database.repositories.conversation import SQLConversationRepository
 from prosales.infrastructure.llm.observability import LLMCallTracker
-from prosales.infrastructure.llm.provider import LLMProvider
+from prosales.infrastructure.llm.provider import LLMMessage, LLMProvider
 from prosales.pipeline.state import CognitivePipelineState
 
 logger = logging.getLogger(__name__)
+
+# Max LLM⇄tool round-trips in one turn before we stop and return whatever text
+# we have. Caps cost/latency and guards against a model that loops on tools.
+MAX_TOOL_ITERATIONS = 5
 
 
 def _make_timed_node(
@@ -244,11 +249,74 @@ def create_prompt_builder_node(engine, event_store: EventStore | None = None):
     return _make_timed_node("build_prompt", build_prompt, event_store)
 
 
+def _record_llm_trace(execution, model, usage, start) -> None:
+    """Append one LLMCall trace for a completed provider call."""
+    if not execution:
+        return
+    duration_ms = (time.monotonic() - start) * 1000
+    usage = usage or {}
+    trace = LLMCall(
+        provider="openai",  # TODO: detect from provider
+        model=model or "",
+        temperature=0.7,
+        prompt_tokens=usage.get("prompt_tokens", 0),
+        completion_tokens=usage.get("completion_tokens", 0),
+        total_tokens=usage.get("total_tokens", 0),
+        duration_ms=round(duration_ms, 2),
+    )
+    execution.llm_calls.append(trace)
+    execution.versions.model = model or execution.versions.model
+
+
+async def _run_tool_loop(llm, messages, tool_executor, model, execution) -> str:
+    """In-turn Action Layer: let the model call CRM tools and feed results back
+    until it produces a final text reply (or we hit MAX_TOOL_ITERATIONS). A
+    failed tool returns an ``{"error": ...}`` payload the model can recover from
+    rather than crashing the turn. No streaming on this path (the CRM channel
+    delivers the reply via a single callback, not token-by-token)."""
+    tools = tool_executor.tool_schemas()
+    convo = list(messages)
+    last_content = ""
+    for _ in range(MAX_TOOL_ITERATIONS):
+        start = time.monotonic()
+        resp = await llm.complete_with_tools(convo, tools, model=model)
+        _record_llm_trace(execution, resp.model or model, resp.usage, start)
+        last_content = resp.content or last_content
+        if not resp.tool_calls:
+            return resp.content
+        convo.append(
+            LLMMessage(role="assistant", content=resp.content, tool_calls=resp.tool_calls)
+        )
+        for tc in resp.tool_calls:
+            result = await tool_executor.execute(tc.name, tc.arguments)
+            convo.append(
+                LLMMessage(
+                    role="tool",
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    content=json.dumps(result, default=str),
+                )
+            )
+    logger.warning("Tool loop hit max iterations (%d); returning last text", MAX_TOOL_ITERATIONS)
+    return last_content
+
+
 def create_llm_call_node(llm: LLMProvider, model: str | None = None, event_store: EventStore | None = None):
     async def llm_call(state: CognitivePipelineState) -> dict:
         messages = state.get("prompt_messages", [])
         if not messages:
             return {"llm_response": ""}
+
+        execution: PipelineExecution | None = state.get("execution")
+
+        # In-turn Action Layer: when a tool executor is present (crm_inbound
+        # sets it for orgs with CRM connectivity + capability), run the tool
+        # loop instead of a single completion. Mutually exclusive with
+        # streaming — the CRM channel never streams (background + callback).
+        tool_executor = state.get("tool_executor")
+        if tool_executor is not None:
+            content = await _run_tool_loop(llm, messages, tool_executor, model, execution)
+            return {"llm_response": content}
 
         # Streaming (see PipelineRunner.run(on_token=...) / conversation.py's
         # /message/stream): identical outcome for post_process/store/learn
@@ -273,22 +341,7 @@ def create_llm_call_node(llm: LLMProvider, model: str | None = None, event_store
             response_model = response.model
             usage = response.usage or {}
 
-        duration_ms = (time.monotonic() - start) * 1000
-
-        # Record LLM call in execution
-        execution: PipelineExecution | None = state.get("execution")
-        llm_call_trace = LLMCall(
-            provider="openai",  # TODO: detect from provider
-            model=response_model,
-            temperature=0.7,
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
-            total_tokens=usage.get("total_tokens", 0),
-            duration_ms=round(duration_ms, 2),
-        )
-        if execution:
-            execution.llm_calls.append(llm_call_trace)
-            execution.versions.model = response_model
+        _record_llm_trace(execution, response_model, usage, start)
 
         return {"llm_response": content}
 

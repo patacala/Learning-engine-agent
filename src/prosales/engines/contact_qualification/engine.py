@@ -16,6 +16,12 @@ _NEGATIVE = {Sentiment.NEGATIVE, Sentiment.VERY_NEGATIVE}
 _POSITIVE_SIGNALS = {"positive_interest", "appointment_requested", "ready_to_buy", "budget_confirmed"}
 _NEGATIVE_SIGNALS = {"not_interested", "price_objection", "comparing_competitors"}
 
+# Facts that are first-write-wins: once captured, a later turn must NOT overwrite
+# them. The product/service the contact is interested in (e.g. "Audi A5") is the
+# anchor of the whole conversation — a later "agendar una visita" turn would
+# otherwise clobber product_interest with the scheduling intent and lose it.
+_STICKY_FACTS = {"product_interest"}
+
 
 class ContactQualificationEngine:
     def qualify(
@@ -42,9 +48,14 @@ class ContactQualificationEngine:
         for s in detected:
             signals[s] = signals.get(s, 0) + 1
 
-        # --- accumulate facts (new overrides) ---
+        # --- accumulate facts (new overrides, except sticky ones) ---
         facts = dict(prior.facts)
-        facts.update({k: v for k, v in (cs.facts or {}).items() if v})
+        for k, v in (cs.facts or {}).items():
+            if not v:
+                continue
+            if k in _STICKY_FACTS and facts.get(k):
+                continue  # keep the first-captured value (see _STICKY_FACTS)
+            facts[k] = v
 
         # --- BANT ---
         has = signals.__contains__
