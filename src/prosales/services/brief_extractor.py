@@ -134,3 +134,62 @@ class BriefExtractor:
         return BriefResponse(
             identity=identity, personality=personality, rules=rules, strategies=strategies
         )
+
+
+# --- Additive merge (brief enriches the template-seeded config, never wipes it) ---
+# The agent type already seeded a solid identity/personality/rules/strategies.
+# The brief ADDS on top: a weak brief ("an agent that answers calls") must not
+# degrade the agent. Semantics: list fields are unioned (template items first),
+# scalar fields (name/description/tone/communication_style) are kept from the
+# template — the user can still override any scalar directly in the tabs.
+
+
+def _union(base: list[str], extra: list[str]) -> list[str]:
+    """Order-preserving union: base items first, then new extra items."""
+    out = list(base)
+    seen = set(base)
+    for item in extra:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def merge_identity(base: IdentityPayload, brief: IdentityPayload) -> IdentityPayload:
+    return IdentityPayload(
+        name=base.name,
+        description=base.description,
+        communication_style=base.communication_style,
+        compliance_notes=base.compliance_notes or brief.compliance_notes,
+        principles=_union(base.principles, brief.principles),
+        beliefs=_union(base.beliefs, brief.beliefs),
+        values=_union(base.values, brief.values),
+        words_never_use=_union(base.words_never_use, brief.words_never_use),
+        words_prefer=_union(base.words_prefer, brief.words_prefer),
+    )
+
+
+def merge_personality(base: PersonalityPayload, brief: PersonalityPayload) -> PersonalityPayload:
+    return PersonalityPayload(
+        brand_traits=_union(base.brand_traits, brief.brand_traits),
+        brand_tone=base.brand_tone,
+        brand_instructions=_union(base.brand_instructions, brief.brand_instructions),
+        voice_traits=_union(base.voice_traits, brief.voice_traits),
+        voice_tone=base.voice_tone,
+        voice_instructions=_union(base.voice_instructions, brief.voice_instructions),
+    )
+
+
+def merge_rules(base: list[RulePayload], brief: list[RulePayload]) -> list[RulePayload]:
+    """Keep every template rule; append brief rules whose rule_id isn't taken."""
+    seen = {r.rule_id for r in base}
+    return [*base, *(r for r in brief if r.rule_id not in seen)]
+
+
+def merge_strategies(
+    base: list[StrategyPayload], brief: list[StrategyPayload]
+) -> list[StrategyPayload]:
+    """Keep every template strategy; append brief strategies whose strategy_type
+    isn't already present (don't duplicate a strategy_type)."""
+    seen = {s.strategy_type for s in base}
+    return [*base, *(s for s in brief if s.strategy_type not in seen)]

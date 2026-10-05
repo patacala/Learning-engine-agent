@@ -43,7 +43,13 @@ from prosales.config import settings
 from prosales.core.models.qualification_schema import QualificationField, default_schema
 from prosales.di.container import create_llm_provider
 from prosales.engines.knowledge.indexer import index_document
-from prosales.services.brief_extractor import BriefExtractor
+from prosales.services.brief_extractor import (
+    BriefExtractor,
+    merge_identity,
+    merge_personality,
+    merge_rules,
+    merge_strategies,
+)
 from prosales.infrastructure.agent.resolver import invalidate_agent_context, invalidate_agent_version_cache
 from prosales.infrastructure.agent.templates import assign_agent_to_org, create_agent_from_template
 from prosales.infrastructure.cache.redis import RedisCache
@@ -207,6 +213,70 @@ async def _persist_qualification(
         fields=[f.model_dump() for f in fields],
     ))
     await session.flush()
+
+
+# --- Config readers (ORM → payloads) for additive brief merge ---
+# Return None/[] when absent so the brief merge treats a not-yet-seeded version
+# as "no base" (merge == brief alone), keeping agents created without a template
+# working exactly as before.
+
+async def _read_identity_payload(session: AsyncSession, version_id: uuid.UUID) -> IdentityPayload | None:
+    row = (await session.execute(
+        select(AgentIdentityModel).where(AgentIdentityModel.agent_version_id == version_id)
+    )).scalar_one_or_none()
+    if row is None:
+        return None
+    return IdentityPayload(
+        name=row.name, description=row.description,
+        communication_style=row.communication_style, compliance_notes=row.compliance_notes,
+        principles=row.principles or [], beliefs=row.beliefs or [], values=row.values_list or [],
+        words_never_use=row.words_never_use or [], words_prefer=row.words_prefer or [],
+    )
+
+
+async def _read_personality_payload(session: AsyncSession, version_id: uuid.UUID) -> PersonalityPayload | None:
+    row = (await session.execute(
+        select(AgentPersonalityModel).where(AgentPersonalityModel.agent_version_id == version_id)
+    )).scalar_one_or_none()
+    if row is None:
+        return None
+    return PersonalityPayload(
+        brand_traits=row.brand_traits or [], brand_tone=row.brand_tone,
+        brand_instructions=row.brand_instructions or [], voice_traits=row.voice_traits or [],
+        voice_tone=row.voice_tone, voice_instructions=row.voice_instructions or [],
+    )
+
+
+async def _read_rules_payload(session: AsyncSession, version_id: uuid.UUID) -> list[RulePayload]:
+    rows = (await session.execute(
+        select(AgentRuleModel).where(AgentRuleModel.agent_version_id == version_id)
+    )).scalars().all()
+    return [
+        RulePayload(
+            rule_id=r.rule_id, intent=r.intent, sentiment=r.sentiment, urgency=r.urgency,
+            action_type=r.action_type, action_params=r.action_params or {}, priority=r.priority,
+        )
+        for r in rows
+    ]
+
+
+async def _read_strategies_payload(session: AsyncSession, version_id: uuid.UUID) -> list[StrategyPayload]:
+    rows = (await session.execute(
+        select(AgentStrategyModel)
+        .options(selectinload(AgentStrategyModel.tactics))
+        .where(AgentStrategyModel.agent_version_id == version_id)
+    )).scalars().all()
+    return [
+        StrategyPayload(
+            strategy_type=s.strategy_type, name=s.name, description=s.description or "",
+            triggers=s.triggers or [], priority=s.priority, cooldown_seconds=s.cooldown_seconds,
+            tactics=[
+                {"name": t.name, "prompt_instruction": t.prompt_instruction, "position": t.position}
+                for t in s.tactics
+            ],
+        )
+        for s in rows
+    ]
 
 
 def _agent_response(agent: AgentModel, latest_version: AgentVersionModel | None = None) -> AgentResponse:
@@ -564,20 +634,37 @@ async def configure_from_brief(
     org: OrganizationModel = Depends(get_authenticated_org),
     cache: RedisCache = Depends(get_redis_cache),
 ) -> BriefResponse:
-    """Generate and persist the whole config from a plain-language brief, so a
-    non-technical user never hand-edits strategy_type/cooldown/tactics. Returns
-    the generated config (also persisted) for a read-only summary in the CRM;
-    the per-section PUT endpoints remain available for fine edits afterwards."""
+    """Enrich the agent's config from a plain-language brief, so a non-technical
+    user never hand-edits strategy_type/cooldown/tactics.
+
+    ADDITIVE: the brief merges ON TOP of the existing (type-template-seeded)
+    config — list fields are unioned, scalars (name/tone/style) are kept from the
+    template — so a weak brief ("an agent that answers calls") never degrades the
+    agent. The per-section PUT endpoints remain the way to override any field.
+    Returns the MERGED config for a read-only summary in the CRM."""
     session = await _get_session_from_org(org)
     version = await _verify_version_belongs_to_org(session, version_id, org.id)
 
     extractor = BriefExtractor(create_llm_provider())
     generated = await extractor.extract(body.brief)
 
-    await _persist_identity(session, version_id, generated.identity)
-    await _persist_personality(session, version_id, generated.personality)
-    await _persist_rules(session, version_id, generated.rules)
-    await _persist_strategies(session, version_id, generated.strategies)
+    # Merge onto the current config (if any) so the template baseline survives.
+    base_identity = await _read_identity_payload(session, version_id)
+    base_personality = await _read_personality_payload(session, version_id)
+    base_rules = await _read_rules_payload(session, version_id)
+    base_strategies = await _read_strategies_payload(session, version_id)
+
+    merged = BriefResponse(
+        identity=merge_identity(base_identity, generated.identity) if base_identity else generated.identity,
+        personality=merge_personality(base_personality, generated.personality) if base_personality else generated.personality,
+        rules=merge_rules(base_rules, generated.rules),
+        strategies=merge_strategies(base_strategies, generated.strategies),
+    )
+
+    await _persist_identity(session, version_id, merged.identity)
+    await _persist_personality(session, version_id, merged.personality)
+    await _persist_rules(session, version_id, merged.rules)
+    await _persist_strategies(session, version_id, merged.strategies)
     # Seed a default qualification schema so the Qualification tab is pre-filled;
     # the user refines it there. (Only when one isn't configured yet.)
     existing_qual = (
@@ -593,7 +680,7 @@ async def configure_from_brief(
     await session.flush()
 
     await invalidate_agent_version_cache(cache, version_id)
-    return generated
+    return merged
 
 
 # --- Qualification schema (what the agent captures from a lead) ---

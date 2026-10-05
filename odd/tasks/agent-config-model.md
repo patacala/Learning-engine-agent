@@ -34,11 +34,14 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
 - [x] 1.4 Tests: `tests/unit/agent/test_agent_templates.py` +
       `tests/unit/engines/test_prompt_builder_fallback.py` (8 new). Suite 433 green.
 
-### Phase 2 — Additive brief (non-destructive)
-- [ ] 2.1 `services/brief_extractor.py` + `management.py configure_from_brief`:
-      merge brief output onto existing (template-seeded) config instead of
-      overwrite; empty/weak brief leaves template intact. Reuse `_persist_*`.
-- [ ] 2.2 Tests: empty brief preserves template; partial brief merges.
+### Phase 2 — Additive brief (non-destructive) ✅ DONE
+- [x] 2.1 `brief_extractor.py`: pure merge fns (`merge_identity/personality/
+      rules/strategies`, `_union`) — lists unioned (template first), scalars kept
+      from template, rules/strategies union by rule_id/strategy_type (template
+      wins). `management.py configure_from_brief` reads base via new
+      `_read_*_payload` helpers, merges, persists via existing `_persist_*`,
+      returns merged. Empty base → brief alone (backward-safe).
+- [x] 2.2 Tests: `tests/unit/services/test_brief_merge.py` (6). Suite 439 green.
 
 ### Phase 3 — Custom qualification fields + configurable BANT
 - [ ] 3.1 `core/models/qualification_schema.py`: add `bant_dimension` +
@@ -65,3 +68,4 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
 - 2026-10-05: feature doc created, branch `feat/agent-config-model`. Starting Phase 1.
 - 2026-10-05: Phase 1 DONE (ProSales + CRM). 433 tests green, CRM typecheck green.
   ProSales commit on feat/agent-config-model; CRM commit on its own branch.
+- 2026-10-05: Phase 2 DONE (ProSales only). Additive brief merge. 439 tests green.
