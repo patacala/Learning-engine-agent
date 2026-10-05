@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from './hooks/useAuth';
 import { useTraining } from './hooks/useTraining';
 import { useBrain } from './hooks/useBrain';
 import { ChatLayout } from './components/layout/ChatLayout';
+import { LoginScreen } from './components/auth/LoginScreen';
 import { SessionSidebar, type SidebarView } from './components/sidebar/SessionSidebar';
 import { ChatArea } from './components/chat/ChatArea';
 import { BrainDashboard } from './components/brain/BrainDashboard';
 import { TestPlayground } from './components/testing/TestPlayground';
 
 function App() {
+  const { status: authStatus, loginError, submitLogin, signOut } = useAuth();
   const {
     agents,
     selectedAgentId,
@@ -116,24 +119,38 @@ function App() {
     />
   );
 
+  if (authStatus !== 'authenticated') {
+    return authStatus === 'checking' ? null : (
+      <LoginScreen error={loginError} onSubmit={submitLogin} />
+    );
+  }
+
   return (
-    <ChatLayout
-      sidebar={
-        <SessionSidebar
-          agents={agents}
-          selectedAgentId={selectedAgentId}
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          currentView={view}
-          onSelectAgent={handleSelectAgent}
-          onSelectSession={selectSession}
-          onDeleteSession={deleteSession}
-          onNewSession={startNewSession}
-          onChangeView={setView}
-        />
-      }
-      content={content}
-    />
+    <div className="relative h-screen">
+      <button
+        onClick={() => void signOut()}
+        className="absolute top-2 right-2 z-10 text-xs text-gray-400 hover:text-gray-700 px-2 py-1"
+      >
+        Sign out
+      </button>
+      <ChatLayout
+        sidebar={
+          <SessionSidebar
+            agents={agents}
+            selectedAgentId={selectedAgentId}
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            currentView={view}
+            onSelectAgent={handleSelectAgent}
+            onSelectSession={selectSession}
+            onDeleteSession={deleteSession}
+            onNewSession={startNewSession}
+            onChangeView={setView}
+          />
+        }
+        content={content}
+      />
+    </div>
   );
 }
 

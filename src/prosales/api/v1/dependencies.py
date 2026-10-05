@@ -3,7 +3,7 @@ import logging
 from contextvars import ContextVar
 from typing import AsyncGenerator
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,10 @@ from prosales.infrastructure.database.connection import async_session_factory
 from prosales.infrastructure.agent.resolver import AgentContextResolver
 from prosales.infrastructure.database.models_agent import OrganizationModel
 from prosales.infrastructure.security.api_keys import api_key_prefix, hash_api_key
+from prosales.infrastructure.security.session_tokens import verify_session_token
+
+# Name of the httpOnly cookie the UI's login endpoint sets (see endpoints/auth.py).
+SESSION_COOKIE_NAME = "prosales_session"
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +88,17 @@ async def require_agent_context(
     return ctx
 
 
-def _internal_token_ok(token: str | None) -> bool:
-    """Constant-time check of the internal API token.
+def _internal_token_ok(token: str | None, session_cookie: str | None = None) -> bool:
+    """Constant-time check of the internal API token OR a valid UI session cookie.
 
     When INTERNAL_API_TOKEN is unset, internal endpoints are open ONLY in
     development (local UI/tests); any other APP_ENV rejects every request so a
     misconfigured production deploy fails closed for callers, not open.
+
+    The raw token (X-Internal-Token) stays accepted for trusted server-to-server
+    callers (scripts, eval tooling) — the browser UI no longer carries it
+    directly; it exchanges ui_login_password for session_cookie via /auth/login
+    instead, so the secret never ships in the JS bundle.
     """
     if not settings.internal_api_token:
         if settings.app_env == "development":
@@ -99,27 +108,31 @@ def _internal_token_ok(token: str | None) -> bool:
             settings.app_env,
         )
         return False
-    return token is not None and hmac.compare_digest(token, settings.internal_api_token)
+    if token is not None and hmac.compare_digest(token, settings.internal_api_token):
+        return True
+    return verify_session_token(session_cookie, settings.internal_api_token)
 
 
 async def verify_internal_token(
     x_internal_token: str | None = Header(None),
+    prosales_session: str | None = Cookie(None, alias=SESSION_COOKIE_NAME),
 ) -> None:
     """Gate for internal/training endpoints (learning, testing, agents, timeline)."""
-    if not _internal_token_ok(x_internal_token):
+    if not _internal_token_ok(x_internal_token, prosales_session):
         raise HTTPException(status_code=401, detail="Invalid or missing internal token")
 
 
 async def verify_internal_or_api_key(
     x_internal_token: str | None = Header(None),
     x_api_key: str | None = Header(None),
+    prosales_session: str | None = Cookie(None, alias=SESSION_COOKIE_NAME),
 ) -> None:
     """Gate for endpoints used by BOTH the internal UI and the CRM.
 
-    Accepts the internal token (UI) or a valid, active organization API key
-    (CRM calls e.g. /conversation/{id}/close and /feedback).
+    Accepts the internal token or UI session cookie, or a valid, active
+    organization API key (CRM calls e.g. /conversation/{id}/close and /feedback).
     """
-    if _internal_token_ok(x_internal_token):
+    if _internal_token_ok(x_internal_token, prosales_session):
         return
     if x_api_key:
         async with async_session_factory() as session:

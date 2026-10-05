@@ -1,19 +1,8 @@
-// Shared fetch wrapper: attaches the internal API token to every request.
-// In development the backend allows requests without a token; in production
-// the token is baked in at build time via VITE_INTERNAL_TOKEN.
-
-const INTERNAL_TOKEN: string = import.meta.env.VITE_INTERNAL_TOKEN ?? '';
-
-export function authHeaders(extra?: Record<string, string>): Record<string, string> {
-  const headers: Record<string, string> = { ...(extra ?? {}) };
-  if (INTERNAL_TOKEN) headers['X-Internal-Token'] = INTERNAL_TOKEN;
-  return headers;
-}
+// Shared fetch wrapper. Auth is a session cookie set by POST /auth/login (see
+// api/auth.ts) — the browser attaches it automatically on every same-origin
+// request (nginx proxies /api to the backend on the same origin in every
+// deployment), so there's no token to manage here anymore.
 
 export async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
-  const headers = new Headers(init?.headers);
-  if (INTERNAL_TOKEN && !headers.has('X-Internal-Token')) {
-    headers.set('X-Internal-Token', INTERNAL_TOKEN);
-  }
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, credentials: 'same-origin' });
 }

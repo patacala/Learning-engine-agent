@@ -63,6 +63,10 @@ services:
       PROVISIONING_SECRET: ${PROVISIONING_SECRET:-}
       # Internal endpoints fail closed in production when unset.
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
+      # UI login password (POST /auth/login) — fails closed in production when
+      # unset, same as INTERNAL_API_TOKEN. The browser never sees either value
+      # directly; login exchanges this for a short-lived session cookie.
+      UI_LOGIN_PASSWORD: ${UI_LOGIN_PASSWORD:-}
     expose:
       - "8000"
     depends_on:
@@ -118,9 +122,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        # Baked into the static bundle at build time; must match INTERNAL_API_TOKEN.
-        VITE_INTERNAL_TOKEN: ${INTERNAL_API_TOKEN:-}
     restart: unless-stopped
     # Public service. Either let Coolify map a domain to the exposed port, or
     # publish WEB_HOST_PORT on the host for an external tunnel (cloudflared,

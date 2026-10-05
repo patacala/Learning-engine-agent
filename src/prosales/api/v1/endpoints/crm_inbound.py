@@ -86,9 +86,10 @@ async def _resolve_client_and_conversation(
             return client.id, conversation.id
 
 
-# Capability that unlocks the in-turn Action Layer (CRM tool-calling). Reuses
-# the existing org-level "appointment" capability from ORG_CAPABILITY_PRESETS
-# rather than inventing a new vocabulary word.
+# Capability that unlocks the appointment/payment tools in the in-turn Action
+# Layer. Reuses the existing org-level "appointment" capability from
+# ORG_CAPABILITY_PRESETS rather than inventing a new vocabulary word.
+# opt_out_contact is NOT gated by this — see CRMToolExecutor.actions_enabled.
 ACTIONS_CAPABILITY = "appointment"
 
 
@@ -128,11 +129,14 @@ def _build_executor(
     contact_id: str | None,
     schema=None,
     contact: dict | None = None,
+    actions_enabled: bool = True,
 ) -> CRMToolExecutor | None:
     """One executor for both the in-turn tool loop and the qualification push —
-    needs only CRM connectivity. Capability gating for the tool loop is applied
-    separately (see _run_pipeline_and_reply); the push is always allowed when
-    there's connectivity. When a schema is given, seeds the scheduling gate."""
+    needs only CRM connectivity. ``actions_enabled`` gates the appointment/
+    payment tools (see ACTIONS_CAPABILITY below); opt_out_contact stays
+    reachable regardless — the executor itself enforces that. The
+    qualification push is always allowed when there's connectivity. When a
+    schema is given, seeds the scheduling gate."""
     if not _org_has_crm(org):
         return None
     required = [f.key for f in schema.required_for_scheduling()] if schema is not None else []
@@ -144,6 +148,7 @@ def _build_executor(
         contact_id=contact_id,
         required_fields=required,
         known_fields=_seed_known_fields(schema, contact),
+        actions_enabled=actions_enabled,
     )
 
 
@@ -219,6 +224,14 @@ async def _run_pipeline_and_reply(
     extra_context: dict | None = None,
     contact_id: str | None = None,
 ) -> None:
+    contact = (extra_context or {}).get("contact") if isinstance(extra_context, dict) else None
+    if contact and "opt-out" in (contact.get("tags") or []):
+        # The contact already opted out (via this same tool, or the CRM's own
+        # detection) — honor it by not sending anything further, not just by
+        # skipping a redundant opt_out_contact call.
+        logger.info("Contact %s is opted out — skipping pipeline run", contact_id)
+        return
+
     cache = get_redis_cache()
     org = await _load_org(organization_id)
 
@@ -233,13 +246,13 @@ async def _run_pipeline_and_reply(
         except Exception as e:  # noqa: BLE001 — schema is best-effort
             logger.warning("Qualification schema resolve failed: %s", e)
 
-    contact = (extra_context or {}).get("contact") if isinstance(extra_context, dict) else None
-    executor = _build_executor(org, conversation_id, contact_id, schema=schema, contact=contact)
-    # The in-turn Action Layer additionally requires the capability; the
-    # qualification push below only needs CRM connectivity.
-    tool_executor = (
-        executor if (executor and agent_context.has_capability(ACTIONS_CAPABILITY)) else None
+    executor = _build_executor(
+        org, conversation_id, contact_id, schema=schema, contact=contact,
+        actions_enabled=agent_context.has_capability(ACTIONS_CAPABILITY),
     )
+    # Opt-out stays reachable even without the appointment capability — the
+    # executor itself gates the appointment/payment tools (actions_enabled).
+    tool_executor = executor
 
     try:
         runner = PipelineRunner(async_session_factory, cache=cache)
@@ -263,8 +276,7 @@ async def _run_pipeline_and_reply(
     await _send_reply_to_crm(org, conversation_id, result.response)
 
     if executor:
-        existing_tags = (extra_context or {}).get("contact", {})
-        existing_tags = existing_tags.get("tags") if isinstance(existing_tags, dict) else None
+        existing_tags = contact.get("tags") if isinstance(contact, dict) else None
         await _push_qualification(
             executor, cache, contact_id, result.contact_qualification,
             schema=schema, analysis_summary=result.analysis_summary, existing_tags=existing_tags,

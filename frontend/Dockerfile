@@ -6,9 +6,6 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-# Internal API token baked into the bundle (matches the api's INTERNAL_API_TOKEN).
-ARG VITE_INTERNAL_TOKEN=
-ENV VITE_INTERNAL_TOKEN=${VITE_INTERNAL_TOKEN}
 RUN npm run build
 
 # --- Serve stage: nginx serves the static build + proxies the API ---

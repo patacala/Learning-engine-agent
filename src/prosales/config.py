@@ -63,8 +63,16 @@ class Settings(BaseSettings):
 
     # Internal API token — required by internal/training endpoints (learning,
     # testing, agents, timeline, roleplay, assistant, episode). Enforced always
-    # when set; when unset, requests are only allowed in development.
+    # when set; when unset, requests are only allowed in development. Also
+    # doubles as the signing secret for the UI session cookie (see auth.py) —
+    # it's already a server-only secret of the same trust level, no need for
+    # a second one.
     internal_api_token: str = ""
+
+    # Password for the ProSales UI's login screen (POST /auth/login). The
+    # browser never sees internal_api_token directly anymore — login exchanges
+    # this password for a short-lived signed session cookie.
+    ui_login_password: str = ""
 
     # Observability
     pipeline_version: str = "1.0.0"

@@ -33,6 +33,57 @@ def test_tool_schemas_hide_injected_fields():
     assert "conversation_id" not in props
 
 
+def test_opt_out_available_without_appointment_capability():
+    ex = _executor()
+    ex.actions_enabled = False
+    names = {t["name"] for t in ex.tool_schemas()}
+    assert names == {"opt_out_contact"}
+
+
+def test_all_tools_available_with_appointment_capability():
+    ex = _executor()  # actions_enabled defaults to True
+    names = {t["name"] for t in ex.tool_schemas()}
+    assert "opt_out_contact" in names
+    assert "create_appointment" in names
+
+
+@pytest.mark.asyncio
+async def test_execute_rejects_gated_tool_without_capability():
+    ex = _executor()
+    ex.actions_enabled = False
+    result = await ex.execute("create_appointment", {"title": "x", "starts_at": "t", "duration_minutes": 30})
+    assert "not available" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_execute_allows_opt_out_without_capability(monkeypatch):
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"opted_out": True}
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json=None, headers=None):
+            return FakeResp()
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+    ex = _executor()
+    ex.actions_enabled = False
+    result = await ex.execute("opt_out_contact", {})
+    assert result == {"opted_out": True}
+
+
 def test_inject_adds_contact_id():
     ex = _executor()
     merged = ex._inject("create_appointment", {"title": "Test drive"})
