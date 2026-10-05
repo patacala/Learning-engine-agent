@@ -63,12 +63,12 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
 - [x] 3.5 Tests: `test_contact_qualification_bant_schema.py` (5). Suite 444 green,
       CRM typecheck green.
 
-### Phase 4 — Ask name at greeting + tone by priority
-- [ ] 4.1 `prompt_builder.py::_format_missing_fields`: early name = direct from
-      greeting; early email/phone = ASAP but gradual; rest = gradual. Empty
-      schema → "".
-- [ ] 4.2 Tests: early name produces a direct greeting instruction; empty schema
-      produces no capture block.
+### Phase 4 — Ask name at greeting + tone by priority ✅ DONE
+- [x] 4.1 `prompt_builder.py::_format_missing_fields` rewritten: name (early) =
+      direct from greeting with a professional framing; other early fields = ASAP
+      but gradual; rest = naturally later. `_is_name_field` helper. Empty schema
+      → "".
+- [x] 4.2 Tests: `test_prompt_builder_missing_fields.py` (6). Suite 450 green.
 
 ## Progress log
 - 2026-10-05: feature doc created, branch `feat/agent-config-model`. Starting Phase 1.
@@ -77,3 +77,5 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
 - 2026-10-05: Phase 2 DONE (ProSales only). Additive brief merge. 439 tests green.
 - 2026-10-05: Phase 3 DONE (ProSales + CRM). Configurable BANT + simplified
   QualificationTab. 444 tests green, CRM typecheck green.
+- 2026-10-05: Phase 4 DONE (ProSales only). Name asked at greeting, tone by
+  priority. 450 tests green. ALL 4 PHASES COMPLETE.

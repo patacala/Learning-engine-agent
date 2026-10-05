@@ -386,12 +386,21 @@ class PromptBuilder(BaseEngine):
             )
         return " ".join(lines)
 
+    @staticmethod
+    def _is_name_field(field) -> bool:
+        """The contact's name field — asked first, right after greeting."""
+        key = (getattr(field, "key", "") or "").lower()
+        target = field.target().lower() if hasattr(field, "target") else ""
+        return target == "full_name" or key in {"full_name", "name", "nombre"}
+
     def _format_missing_fields(self, state: dict[str, Any]) -> str:
-        """Tell the agent which qualification fields it still needs — early ones
-        (name/email/phone) first — so it collects them proactively but WITH TACT
-        (the user's requirement: ask gradually, don't interrogate, don't rush
-        info that could push the lead out of a higher level). Fields already
-        captured, or already known to the CRM, are excluded so it never re-asks.
+        """Tell the agent which qualification fields it still needs, with a tone
+        that depends on priority: the NAME is asked directly right after the
+        greeting (professional, not an interrogation); other early fields
+        (email/phone) are collected ASAP but gradually; everything else comes up
+        naturally later. Fields already captured, or already known to the CRM,
+        are excluded so it never re-asks. An org that configures no fields gets
+        no capture block at all.
         """
         schema = state.get("qualification_schema")
         if schema is None:
@@ -421,18 +430,33 @@ class PromptBuilder(BaseEngine):
         missing = [f for f in fields if f.key not in captured]
         if not missing:
             return ""
-        early = [f for f in missing if f.ask_priority == "early"]
-        rest = [f for f in missing if f.ask_priority != "early"]
-        ordered = early + rest
-        labels = ", ".join(f.label for f in ordered[:6])
-        required_missing = [f.label for f in missing if f.required_for_scheduling]
 
-        lines = [
-            "DATA TO CAPTURE (ask gently, a bit at a time — never interrogate, "
-            "never rush or overwhelm the client; prioritize moving the "
-            "relationship forward over collecting everything at once):",
-            f"- Still missing: {labels}",
+        name_fields = [f for f in missing if f.ask_priority == "early" and self._is_name_field(f)]
+        early_other = [
+            f for f in missing if f.ask_priority == "early" and not self._is_name_field(f)
         ]
+        rest = [f for f in missing if f.ask_priority != "early"]
+
+        lines: list[str] = ["DATA TO CAPTURE:"]
+        if name_fields:
+            lines.append(
+                "- Right after greeting, ask for their name directly and "
+                "professionally so the conversation feels personal (e.g. \"Para "
+                "atenderte mejor, ¿con quién tengo el gusto?\"). Get the name first."
+            )
+        if early_other:
+            labels = ", ".join(f.label for f in early_other)
+            lines.append(
+                f"- Collect as soon as the conversation allows, but gradually "
+                f"(never interrogate): {labels}"
+            )
+        if rest:
+            labels = ", ".join(f.label for f in rest[:6])
+            lines.append(
+                f"- Bring these up naturally later, only when it fits the "
+                f"conversation: {labels}"
+            )
+        required_missing = [f.label for f in missing if f.required_for_scheduling]
         if required_missing:
             lines.append(
                 f"- Required before booking an appointment: {', '.join(required_missing)}"
