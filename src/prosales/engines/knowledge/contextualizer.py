@@ -13,21 +13,21 @@ https://www.anthropic.com/engineering/contextual-retrieval
 import asyncio
 import logging
 
-from prosales.engines.knowledge.chunker import count_tokens
+from prosales.engines.knowledge.chunker import ENCODING, count_tokens
 from prosales.infrastructure.llm.provider import LLMMessage, LLMProvider
 
 logger = logging.getLogger(__name__)
 
 _CONTEXT_MAX_TOKENS = 100
 _CONTEXT_TEMPERATURE = 0.3
-# Short references (hours, a policy) still get a full-document prompt per
-# chunk. A long markdown — a 143KB file is ~30k tokens and hundreds of
-# chunks — cannot: one LLM call per chunk, each carrying the whole file,
-# never finishes before the CRM aborts the sync, so nothing is stored.
-# Above this budget every chunk is embedded as-is. The chunker already
-# prepends the section header, so retrieval still sees which section a
-# fragment belongs to.
+# Anthropic's template passes the whole document. That stays for short
+# references. A long file (a 143KB markdown is tens of thousands of tokens
+# and hundreds of chunks) cannot be repeated in full on every call — the
+# sync dies before any chunk is stored. Above this budget each call gets
+# the enclosing section instead, which is the part that says what the
+# fragment belongs to. The stored result is still "{context}\\n\\n{chunk}".
 _FULL_DOC_TOKEN_BUDGET = 6_000
+_EXCERPT_TOKEN_BUDGET = 2_000
 _CONTEXT_CONCURRENCY = 8
 
 _SYSTEM_PROMPT = (
@@ -71,32 +71,57 @@ async def generate_chunk_context(
     return response.content.strip()
 
 
+def _source_for_chunk(content: str, chunk: str, full_tokens: int) -> str:
+    """Document text the context prompt may see. The whole document when it
+    fits; otherwise the section that contains this chunk."""
+    if full_tokens <= _FULL_DOC_TOKEN_BUDGET:
+        return content
+    return _excerpt_around_chunk(content, chunk)
+
+
+def _excerpt_around_chunk(content: str, chunk: str) -> str:
+    probe = _probe(chunk)
+    pos = content.find(probe) if probe else -1
+    if pos < 0:
+        pos = 0
+    header_at = content.rfind("\n#", 0, max(pos, 1))
+    start = 0 if header_at < 0 else header_at + 1
+    next_header = content.find("\n#", pos + max(len(probe), 1))
+    end = len(content) if next_header < 0 else next_header
+    section = content[start:end].strip() or chunk
+    if count_tokens(section) <= _EXCERPT_TOKEN_BUDGET:
+        return section
+    return ENCODING.decode(ENCODING.encode(section)[:_EXCERPT_TOKEN_BUDGET])
+
+
+def _probe(chunk: str) -> str:
+    text = chunk.strip()
+    if text.startswith("#"):
+        parts = text.split("\n", 1)
+        text = parts[1].strip() if len(parts) > 1 else ""
+    return text[:80]
+
+
 async def contextualize_chunks(
     llm: LLMProvider, title: str, content: str, chunks: list[str]
 ) -> list[str]:
-    """Contextualize every chunk in parallel; returns "{context}\\n\\n{chunk}"
-    per chunk — this is the text that gets embedded and stored."""
+    """Contextualize every chunk; returns "{context}\\n\\n{chunk}" per chunk.
+    That string is what gets embedded and stored."""
     if not chunks:
         return []
 
     source_tokens = count_tokens(content)
-    if source_tokens > _FULL_DOC_TOKEN_BUDGET:
-        logger.info(
-            "Document %s is %d tokens (budget %d); embedding every chunk without "
-            "a per-chunk LLM call",
-            title,
-            source_tokens,
-            _FULL_DOC_TOKEN_BUDGET,
-        )
-        return list(chunks)
-
+    sources = [_source_for_chunk(content, chunk, source_tokens) for chunk in chunks]
     semaphore = asyncio.Semaphore(_CONTEXT_CONCURRENCY)
 
-    async def _one(chunk: str) -> str:
+    async def _one(chunk: str, source: str) -> str:
         async with semaphore:
-            return await generate_chunk_context(llm, title, content, chunk)
+            return await generate_chunk_context(llm, title, source, chunk)
 
-    contexts = await asyncio.gather(*(_one(chunk) for chunk in chunks), return_exceptions=True)
+    contexts = await asyncio.gather(
+        *(_one(chunk, source) for chunk, source in zip(chunks, sources)),
+        return_exceptions=True,
+    )
 
     out: list[str] = []
     for chunk, context in zip(chunks, contexts):

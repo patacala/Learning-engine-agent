@@ -4,6 +4,7 @@ import pytest
 
 from prosales.engines.knowledge.indexer import index_document
 from prosales.infrastructure.database.models import KnowledgeChunkModel, KnowledgeDocumentModel
+from prosales.infrastructure.llm.provider import LLMResponse
 
 
 @pytest.mark.asyncio
@@ -55,8 +56,8 @@ async def test_index_document_creates_one_chunk_row_per_chunk():
 
 @pytest.mark.asyncio
 async def test_long_document_stores_every_chunk():
-    """143KB-scale markdown must be fully chunked and embedded, not dropped
-    because per-chunk LLM context would time out."""
+    """A long document is fully chunked, and each stored chunk keeps the
+    situating context in front of the source text."""
     session = MagicMock()
     session.add = MagicMock()
     session.flush = AsyncMock()
@@ -67,7 +68,9 @@ async def test_long_document_stores_every_chunk():
         return [[0.2] * 1536 for _ in texts]
 
     llm = MagicMock()
-    llm.complete = AsyncMock()
+    llm.complete = AsyncMock(
+        return_value=LLMResponse(content="Contexto del catalogo.", model="test")
+    )
     with (
         patch("prosales.engines.knowledge.indexer.create_analyzer_llm", return_value=llm),
         patch(
@@ -83,11 +86,10 @@ async def test_long_document_stores_every_chunk():
     assert [c.chunk_index for c in chunk_rows] == list(range(len(chunk_rows)))
     assert all(c.document_id == doc.id for c in chunk_rows)
     assert all(c.embedding == [0.2] * 1536 for c in chunk_rows)
-    # No LLM blurb was prepended; the source text is what got stored.
-    assert all(not c.content.startswith("ctx:") for c in chunk_rows)
+    assert all(c.content.startswith("Contexto del catalogo.\n\n") for c in chunk_rows)
     joined = "\n".join(c.content for c in chunk_rows)
     assert "garantia de fabrica" in joined
-    llm.complete.assert_not_called()
+    assert llm.complete.await_count == len(chunk_rows)
 
 
 @pytest.mark.asyncio
