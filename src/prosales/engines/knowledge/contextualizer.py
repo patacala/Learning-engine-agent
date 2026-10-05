@@ -13,12 +13,22 @@ https://www.anthropic.com/engineering/contextual-retrieval
 import asyncio
 import logging
 
+from prosales.engines.knowledge.chunker import count_tokens
 from prosales.infrastructure.llm.provider import LLMMessage, LLMProvider
 
 logger = logging.getLogger(__name__)
 
 _CONTEXT_MAX_TOKENS = 100
 _CONTEXT_TEMPERATURE = 0.3
+# Short references (hours, a policy) still get a full-document prompt per
+# chunk. A long markdown — a 143KB file is ~30k tokens and hundreds of
+# chunks — cannot: one LLM call per chunk, each carrying the whole file,
+# never finishes before the CRM aborts the sync, so nothing is stored.
+# Above this budget every chunk is embedded as-is. The chunker already
+# prepends the section header, so retrieval still sees which section a
+# fragment belongs to.
+_FULL_DOC_TOKEN_BUDGET = 6_000
+_CONTEXT_CONCURRENCY = 8
 
 _SYSTEM_PROMPT = (
     "You situate a document fragment within its source document so it can be "
@@ -69,10 +79,24 @@ async def contextualize_chunks(
     if not chunks:
         return []
 
-    contexts = await asyncio.gather(
-        *(generate_chunk_context(llm, title, content, chunk) for chunk in chunks),
-        return_exceptions=True,
-    )
+    source_tokens = count_tokens(content)
+    if source_tokens > _FULL_DOC_TOKEN_BUDGET:
+        logger.info(
+            "Document %s is %d tokens (budget %d); embedding every chunk without "
+            "a per-chunk LLM call",
+            title,
+            source_tokens,
+            _FULL_DOC_TOKEN_BUDGET,
+        )
+        return list(chunks)
+
+    semaphore = asyncio.Semaphore(_CONTEXT_CONCURRENCY)
+
+    async def _one(chunk: str) -> str:
+        async with semaphore:
+            return await generate_chunk_context(llm, title, content, chunk)
+
+    contexts = await asyncio.gather(*(_one(chunk) for chunk in chunks), return_exceptions=True)
 
     out: list[str] = []
     for chunk, context in zip(chunks, contexts):

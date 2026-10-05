@@ -45,7 +45,7 @@ async def index_document(
     # for its embedding client) so no caller needs to change.
     contextualized = await contextualize_chunks(create_analyzer_llm(), title, content, raw_chunks)
 
-    vector_store = PGVectorStore(session)
+    prepared: list[tuple[str, int]] = []
     for index, chunk_text in enumerate(contextualized):
         tokens = ENCODING.encode(chunk_text)
         if len(tokens) > MAX_EMBED_TOKENS:
@@ -53,9 +53,13 @@ async def index_document(
             # produce this, but never let one pathological chunk crash
             # indexing or exceed the embedding model's real 8191-token ceiling.
             logger.warning("Chunk %d of %s exceeded MAX_EMBED_TOKENS, truncating", index, title)
-            chunk_text = ENCODING.decode(tokens[:MAX_EMBED_TOKENS])
+            tokens = tokens[:MAX_EMBED_TOKENS]
+            chunk_text = ENCODING.decode(tokens)
+        prepared.append((chunk_text, len(tokens)))
 
-        embedding = await vector_store.embed(chunk_text)
+    vector_store = PGVectorStore(session)
+    embeddings = await vector_store.embed_many([text for text, _count in prepared])
+    for index, ((chunk_text, token_count), embedding) in enumerate(zip(prepared, embeddings)):
         session.add(
             KnowledgeChunkModel(
                 id=uuid4(),
@@ -64,7 +68,7 @@ async def index_document(
                 chunk_index=index,
                 content=chunk_text,
                 embedding=embedding,
-                token_count=len(tokens),
+                token_count=token_count,
             )
         )
 

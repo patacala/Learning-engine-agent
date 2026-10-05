@@ -15,10 +15,12 @@ async def test_index_document_creates_one_chunk_row_per_chunk():
     # Realistically sized sections (like the real Business Hours doc's
     # per-department day lists) — short enough to stay whole, but long
     # enough not to trip the tiny-fragment merge floor (MIN_CHUNK_TOKENS).
-    dealership_days = "\n".join(f"{d}: 9:00 am - 7:00 pm" for d in
-                                 ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
-    service_days = "\n".join(f"{d}: 7:30 am - 7:00 pm" for d in
-                              ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+    dealership_days = "\n".join(
+        f"{d}: 9:00 am - 7:00 pm" for d in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    )
+    service_days = "\n".join(
+        f"{d}: 7:30 am - 7:00 pm" for d in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    )
     content = f"## Dealership\n\n{dealership_days}\n\n## Service\n\n{service_days}"
 
     with (
@@ -30,8 +32,8 @@ async def test_index_document_creates_one_chunk_row_per_chunk():
         ),
         patch("prosales.engines.knowledge.indexer.create_analyzer_llm", return_value=MagicMock()),
         patch(
-            "prosales.engines.knowledge.indexer.PGVectorStore.embed",
-            AsyncMock(return_value=[0.1] * 1536),
+            "prosales.engines.knowledge.indexer.PGVectorStore.embed_many",
+            AsyncMock(return_value=[[0.1] * 1536, [0.1] * 1536]),
         ),
     ):
         doc = await index_document(session, title="Hours", content=content, category="general")
@@ -49,6 +51,43 @@ async def test_index_document_creates_one_chunk_row_per_chunk():
     assert all(c.document_id == doc.id for c in chunk_rows)
     assert all(c.content.startswith("ctx: ") for c in chunk_rows)  # contextualized
     assert all(c.embedding == [0.1] * 1536 for c in chunk_rows)
+
+
+@pytest.mark.asyncio
+async def test_long_document_stores_every_chunk():
+    """143KB-scale markdown must be fully chunked and embedded, not dropped
+    because per-chunk LLM context would time out."""
+    session = MagicMock()
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+
+    content = "## Catalogo\n\n" + ("El vehiculo incluye garantia de fabrica. " * 2000)
+
+    async def _embed(texts):
+        return [[0.2] * 1536 for _ in texts]
+
+    llm = MagicMock()
+    llm.complete = AsyncMock()
+    with (
+        patch("prosales.engines.knowledge.indexer.create_analyzer_llm", return_value=llm),
+        patch(
+            "prosales.engines.knowledge.indexer.PGVectorStore.embed_many",
+            AsyncMock(side_effect=_embed),
+        ),
+    ):
+        doc = await index_document(session, title="Catalogo", content=content, category="products")
+
+    added = [call.args[0] for call in session.add.call_args_list]
+    chunk_rows = [a for a in added if isinstance(a, KnowledgeChunkModel)]
+    assert len(chunk_rows) > 10
+    assert [c.chunk_index for c in chunk_rows] == list(range(len(chunk_rows)))
+    assert all(c.document_id == doc.id for c in chunk_rows)
+    assert all(c.embedding == [0.2] * 1536 for c in chunk_rows)
+    # No LLM blurb was prepended; the source text is what got stored.
+    assert all(not c.content.startswith("ctx:") for c in chunk_rows)
+    joined = "\n".join(c.content for c in chunk_rows)
+    assert "garantia de fabrica" in joined
+    llm.complete.assert_not_called()
 
 
 @pytest.mark.asyncio

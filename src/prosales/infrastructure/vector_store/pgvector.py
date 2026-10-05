@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from prosales.core.exceptions import LLMError
 from prosales.infrastructure.llm.clients import get_openai_client
 
 
@@ -13,11 +14,32 @@ class PGVectorStore:
         self.organization_id = organization_id
 
     async def embed(self, text_content: str) -> list[float]:
-        response = await self.openai.embeddings.create(
-            model="text-embedding-3-small",
-            input=text_content,
-        )
-        return response.data[0].embedding
+        vectors = await self.embed_many([text_content])
+        return vectors[0]
+
+    async def embed_many(self, texts: list[str]) -> list[list[float]]:
+        """Embed every text. One request covers a long document's chunks
+        (text-embedding-3-small accepts up to 2048 inputs); a single
+        143KB markdown is a few hundred chunks and must not be N sequential
+        HTTP calls."""
+        if not texts:
+            return []
+
+        # 128 inputs stays far under the 300k-token request ceiling when each
+        # input is a ~300-token chunk.
+        batch_size = 128
+        out: list[list[float]] = []
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+            response = await self.openai.embeddings.create(
+                model="text-embedding-3-small",
+                input=batch,
+            )
+            ordered = sorted(response.data, key=lambda item: item.index)
+            out.extend(item.embedding for item in ordered)
+        if len(out) != len(texts):
+            raise LLMError(f"Embedding API returned {len(out)} vectors for {len(texts)} chunks")
+        return out
 
     async def search(self, query: str, top_k: int = 5) -> list[dict]:
         query_embedding = await self.embed(query)

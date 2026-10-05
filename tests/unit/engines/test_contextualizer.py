@@ -33,6 +33,21 @@ async def test_contextualize_chunks_empty_input_returns_empty():
 
 
 @pytest.mark.asyncio
+async def test_long_document_embeds_plain_chunks_without_llm():
+    """A 143KB markdown is tens of thousands of tokens. Per-chunk LLM calls
+    that each include the whole file never finish; the chunks themselves
+    must still be returned so indexing stores every one."""
+    llm = AsyncMock()
+    long_content = "El vehiculo incluye garantia de fabrica. " * 2000
+    chunks = ["## Garantia\n" + "El vehiculo incluye garantia de fabrica. " * 40]
+
+    result = await contextualize_chunks(llm, "Manual", long_content, chunks)
+
+    assert result == chunks
+    llm.complete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_contextualize_chunks_falls_back_to_plain_chunk_on_failure():
     llm = AsyncMock()
     llm.complete = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
