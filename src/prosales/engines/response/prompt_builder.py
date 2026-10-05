@@ -8,7 +8,13 @@ from prosales.infrastructure.llm.provider import LLMMessage
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SYSTEM_TEMPLATE = """You are a sales assistant for a vehicle dealership.
+# Neutral, role-agnostic fallback used ONLY when an agent has no stored templates.
+# It must NOT assume an industry or a role (the old version hardcoded a car
+# dealership salesperson, which flattened every agent — support, consulting,
+# technical service — into a seller). The real role comes from {role}, derived
+# from the agent's identity; with real config this template is never used (see
+# _build_system_message, which assembles from the agent's own components).
+DEFAULT_SYSTEM_TEMPLATE = """You are {role}.
 
 PERSONALITY:
 - Tone: {tone}
@@ -19,7 +25,7 @@ LANGUAGE: Respond in {language}. Keep it natural and conversational.
 CONSTRAINTS:
 - Maximum {max_sentences} sentences
 - Never mention you are an AI
-- Stay in character as a helpful sales consultant
+- Stay in character and true to your role
 - Be conversational, not formal
 - If there is conversation history, acknowledge it naturally. Don't restart as if meeting for the first time
 - Never use filler phrases like "aja", "como no", "claro" at the start -- the voice layer handles those"""
@@ -230,8 +236,13 @@ class PromptBuilder(BaseEngine):
         agent_version_id lets OpenAI's automatic prompt caching match its
         prefix across turns.
         """
+        # Role for the neutral fallback — derived from the agent's identity so a
+        # support/consulting/technical agent isn't forced into a sales role.
+        role = self._fallback_role(identity)
+
         if not (self.prompt_provider and lookup_id):
             base = DEFAULT_SYSTEM_TEMPLATE.format(
+                role=role,
                 tone=tone,
                 personality_instructions=personality_str,
                 language=language,
@@ -243,6 +254,7 @@ class PromptBuilder(BaseEngine):
 
         if not templates:
             base = DEFAULT_SYSTEM_TEMPLATE.format(
+                role=role,
                 tone=tone,
                 personality_instructions=personality_str,
                 language=language,
@@ -353,16 +365,26 @@ class PromptBuilder(BaseEngine):
         """When the Action Layer is active (the agent can call CRM tools), tell
         it it may close by reserving with a payment — the user's requirement to
         persuade the client to pay to hold a product or secure an appointment.
-        Only shown when tools are actually available this turn."""
+        The appointment/payment part only applies when the org has that
+        capability; the opt-out line always applies when tools are available,
+        since opting out isn't a sales feature the org can turn off."""
         if state.get("tool_executor") is None:
             return ""
-        return (
-            "ACTIONS: You can check real availability and book appointments. When "
-            "the client is genuinely interested and a specific product or slot is "
-            "chosen, you may offer a payment link to reserve/secure it "
-            "(list_payment_services then create_payment_link) — frame it as "
-            "securing their spot or holding the unit, naturally, never pushily."
-        )
+        lines = [
+            "ACTIONS: If the customer explicitly asks to stop receiving messages "
+            "(e.g. 'no me escribas más', 'stop', 'unsubscribe'), call "
+            "opt_out_contact, acknowledge briefly, and do not continue selling."
+        ]
+        agent_context = state.get("agent_context")
+        if agent_context and agent_context.has_capability("appointment"):
+            lines.append(
+                "You can check real availability and book appointments. When "
+                "the client is genuinely interested and a specific product or slot "
+                "is chosen, you may offer a payment link to reserve/secure it "
+                "(list_payment_services then create_payment_link) — frame it as "
+                "securing their spot or holding the unit, naturally, never pushily."
+            )
+        return " ".join(lines)
 
     def _format_missing_fields(self, state: dict[str, Any]) -> str:
         """Tell the agent which qualification fields it still needs — early ones
@@ -432,6 +454,20 @@ class PromptBuilder(BaseEngine):
         if not block:
             return base
         return f"{base}\n\n{block}"
+
+    def _fallback_role(self, identity) -> str:
+        """Role line for the neutral fallback template, derived from the agent's
+        identity. Role-agnostic by design: with no identity it stays a generic
+        assistant, never a sales/vehicle role."""
+        name = getattr(identity, "name", None) if identity else None
+        description = getattr(identity, "description", None) if identity else None
+        if name and description:
+            return f"{name}, {description}"
+        if name:
+            return name
+        if description:
+            return description
+        return "a helpful conversational assistant"
 
     def _append_identity_blocks(self, base: str, identity) -> str:
         """Append identity prompt_context and language_context to default template."""
