@@ -43,19 +43,25 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
       returns merged. Empty base → brief alone (backward-safe).
 - [x] 2.2 Tests: `tests/unit/services/test_brief_merge.py` (6). Suite 439 green.
 
-### Phase 3 — Custom qualification fields + configurable BANT
-- [ ] 3.1 `core/models/qualification_schema.py`: add `bant_dimension` +
-      `fields_for_bant(dim)`; tag DEFAULT fields. Per-type default schema.
-- [ ] 3.2 `engines/contact_qualification/engine.py`: `qualify(schema=...)`;
-      BANT per dimension from schema with per-dimension hardcoded fallback; pass
-      schema from `pipeline/nodes.py::_qualify_contact`.
-- [ ] 3.3 `services/crm_tools.py`: `_purchase_urgency` resolves the
-      `bant_dimension="timeline"` field (fallback to current pair).
-- [ ] 3.4 CRM `QualificationTab.tsx` redesign: simple view = label + "ask first"
-      + "required to book" + delete; move type/sticky/crm_field/BANT to advanced
-      (expert mode); hide raw key. `ai-agents.service.ts` type += `bant_dimension`.
-- [ ] 3.5 Tests: custom field mapped to a BANT dimension flips bant; default
-      schema → identical scoring.
+### Phase 3 — Custom qualification fields + configurable BANT ✅ DONE
+- [x] 3.1 `qualification_schema.py`: `bant_dimension` field + `fields_for_bant()`
+      + `BANT_DIMENSIONS`; DEFAULT fields tagged (product_interest→need,
+      has_budget/budget_amount→budget, purchase_timeline→timeline,
+      is_decision_maker→authority).
+- [x] 3.2 `contact_qualification/engine.py`: `qualify(schema=...)` + module-level
+      `_bant_fact_hit(dim, schema, facts, *fallback_keys)` — schema-driven per
+      dimension, per-dimension fallback to legacy keys. schema threaded from
+      `nodes._qualify_contact`. (Also fixed a latent bug: under the default schema
+      the engine read `facts["budget"/"timeline"/"decision_role"]` which the
+      extractor never emits — now reads the tagged keys.)
+- [x] 3.3 `crm_tools.py`: `_timeline_value(facts, schema)` resolves the
+      timeline-tagged field; `_purchase_urgency` uses it (legacy pair fallback).
+- [x] 3.4 CRM `QualificationTab.tsx` simplified: simple view = label + ask first
+      + required to book + delete; type/enum/sticky/crm_field/BANT behind
+      `expertMode` (passed from page.tsx); raw key never shown. Web type +=
+      `bant_dimension`/`BantDimension`.
+- [x] 3.5 Tests: `test_contact_qualification_bant_schema.py` (5). Suite 444 green,
+      CRM typecheck green.
 
 ### Phase 4 — Ask name at greeting + tone by priority
 - [ ] 4.1 `prompt_builder.py::_format_missing_fields`: early name = direct from
@@ -69,3 +75,5 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
 - 2026-10-05: Phase 1 DONE (ProSales + CRM). 433 tests green, CRM typecheck green.
   ProSales commit on feat/agent-config-model; CRM commit on its own branch.
 - 2026-10-05: Phase 2 DONE (ProSales only). Additive brief merge. 439 tests green.
+- 2026-10-05: Phase 3 DONE (ProSales + CRM). Configurable BANT + simplified
+  QualificationTab. 444 tests green, CRM typecheck green.

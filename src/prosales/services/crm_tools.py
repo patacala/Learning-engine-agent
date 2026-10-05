@@ -127,6 +127,22 @@ TOOL_SPECS: list[dict] = [
         },
         "inject": {"contact_id": "contact_id"},
     },
+    {
+        "name": "opt_out_contact",
+        "description": (
+            "Opt this contact out of ALL automated communications. Cancels any "
+            "active follow-up sequences and tags the contact so no agent "
+            "messages them again. Call this ONLY when the customer explicitly "
+            "asks to stop receiving messages (e.g. 'no me escribas más', "
+            "'stop', 'unsubscribe', 'cancelar') — never on vague disinterest. "
+            "After calling it, acknowledge briefly and do not continue selling."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+        "inject": {"contact_id": "contact_id"},
+        # Always exposed to the model, independent of the org's appointment
+        # capability — opting out is the user's right, not a sales feature.
+        "always_available": True,
+    },
 ]
 
 _SPECS_BY_NAME = {s["name"]: s for s in TOOL_SPECS}
@@ -167,6 +183,17 @@ def _purchase_urgency(timeline: str | None) -> str:
     if any(k in t for k in _URGENCY_MEDIUM):
         return "medium"
     return "low"
+
+
+def _timeline_value(facts: dict, schema=None) -> str | None:
+    """Resolve the 'when they plan to buy' value from the schema's timeline-tagged
+    field(s), falling back to the legacy fixed keys when no schema/field is set."""
+    if schema is not None:
+        for f in schema.fields_for_bant("timeline"):
+            value = facts.get(f.key)
+            if value:
+                return value
+    return facts.get("purchase_timeline") or facts.get("timeline")
 
 
 def _derive_tags(qual: dict) -> list[str]:
@@ -235,9 +262,7 @@ def qualification_to_contact_update(
     custom_fields["is_decision_maker"] = bool(bant.get("authority"))
     custom_fields["has_budget"] = bool(bant.get("budget"))
     # urgency_level from the purchase timeline (facts), NOT temperature.
-    custom_fields["urgency_level"] = _purchase_urgency(
-        facts.get("purchase_timeline") or facts.get("timeline")
-    )
+    custom_fields["urgency_level"] = _purchase_urgency(_timeline_value(facts, schema))
 
     update["custom_fields"] = custom_fields
     update["ai_insights"] = {
@@ -300,6 +325,7 @@ class CRMToolExecutor:
         contact_id: str | None,
         required_fields: list[str] | None = None,
         known_fields: set[str] | None = None,
+        actions_enabled: bool = True,
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -311,10 +337,19 @@ class CRMToolExecutor:
         # agent saves data via update_contact in this turn).
         self.required_fields = list(required_fields or [])
         self.known_fields = set(known_fields or [])
+        # Gates the appointment/payment tools behind the org's "appointment"
+        # capability. Tools marked always_available (opt_out_contact) ignore
+        # this — opting out isn't a sales feature the org can turn off.
+        self.actions_enabled = actions_enabled
 
-    @staticmethod
-    def tool_schemas() -> list[dict]:
-        return tool_schemas()
+    def tool_schemas(self) -> list[dict]:
+        specs = TOOL_SPECS if self.actions_enabled else [
+            s for s in TOOL_SPECS if s.get("always_available")
+        ]
+        return [
+            {"name": s["name"], "description": s["description"], "parameters": s["parameters"]}
+            for s in specs
+        ]
 
     def _inject(self, name: str, args: dict) -> dict:
         spec = _SPECS_BY_NAME.get(name, {})
@@ -332,8 +367,11 @@ class CRMToolExecutor:
         """Execute one tool. Returns the CRM's JSON result, or an ``{"error":
         ...}`` dict the loop can feed back to the model instead of crashing the
         whole turn (a failed tool should let the agent recover, not 500)."""
-        if name not in _SPECS_BY_NAME:
+        spec = _SPECS_BY_NAME.get(name)
+        if spec is None:
             return {"error": f"unknown tool: {name}"}
+        if not self.actions_enabled and not spec.get("always_available"):
+            return {"error": f"tool '{name}' not available for this agent"}
 
         # Scheduling gate: don't book until the required contact data is saved.
         if name == "create_appointment":

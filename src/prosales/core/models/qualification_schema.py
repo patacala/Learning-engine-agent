@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field
 # Field types the UI/extractor understand.
 FIELD_TYPES = {"text", "number", "email", "phone", "boolean", "enum", "date"}
 
+# BANT dimensions a field can feed. None → the field doesn't score BANT.
+BANT_DIMENSIONS = {"need", "budget", "authority", "timeline"}
+
 
 class QualificationField(BaseModel):
     key: str
@@ -30,6 +33,10 @@ class QualificationField(BaseModel):
     # First-write-wins: once captured, a later turn must not overwrite it (e.g. product_interest).
     sticky: bool = False
     enabled: bool = True
+    # Which BANT dimension capturing this field satisfies (need|budget|authority|
+    # timeline), or None if it doesn't feed scoring. Lets each org drive its own
+    # BANT from its own fields instead of hardcoded keys.
+    bant_dimension: str | None = None
 
     def target(self) -> str:
         return self.crm_field or self.key
@@ -47,6 +54,10 @@ class QualificationSchema(BaseModel):
     def required_for_scheduling(self) -> list[QualificationField]:
         return [f for f in self.enabled_fields() if f.required_for_scheduling]
 
+    def fields_for_bant(self, dimension: str) -> list[QualificationField]:
+        """Enabled fields whose capture feeds the given BANT dimension."""
+        return [f for f in self.enabled_fields() if f.bant_dimension == dimension]
+
 
 # Default schema: sensible for sales, used when an agent has no custom schema.
 # Native contact fields (full_name/email/phone) vs CRM custom_fields (the rest).
@@ -58,19 +69,19 @@ DEFAULT_QUALIFICATION_FIELDS: list[QualificationField] = [
     QualificationField(key="phone", label="Phone", type="phone",
                        ask_priority="early", required_for_scheduling=True, crm_field="phone"),
     QualificationField(key="product_interest", label="Product of interest", type="text",
-                       sticky=True, crm_field="product_interest"),
+                       sticky=True, crm_field="product_interest", bant_dimension="need"),
     QualificationField(key="service_needed", label="Type of service/operation", type="text",
                        crm_field="service_needed"),
     QualificationField(key="purchase_timeline", label="When they plan to buy", type="text",
-                       crm_field="timeline"),
+                       crm_field="timeline", bant_dimension="timeline"),
     QualificationField(key="has_budget", label="Has budget", type="boolean",
-                       crm_field="has_budget"),
+                       crm_field="has_budget", bant_dimension="budget"),
     QualificationField(key="budget_type", label="Budget type", type="enum",
                        options=["cuotas", "total"], crm_field="budget_type"),
     QualificationField(key="budget_amount", label="Budget amount", type="number",
-                       crm_field="budget_amount"),
+                       crm_field="budget_amount", bant_dimension="budget"),
     QualificationField(key="is_decision_maker", label="Is decision maker", type="boolean",
-                       crm_field="is_decision_maker"),
+                       crm_field="is_decision_maker", bant_dimension="authority"),
 ]
 
 

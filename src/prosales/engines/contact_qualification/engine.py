@@ -23,6 +23,22 @@ _NEGATIVE_SIGNALS = {"not_interested", "price_objection", "comparing_competitors
 _STICKY_FACTS = {"product_interest"}
 
 
+def _bant_fact_hit(dimension: str, schema, facts: dict, *fallback_keys: str) -> bool:
+    """True if any captured fact feeds the given BANT dimension.
+
+    Schema-driven: when the org's schema tags fields with this ``bant_dimension``,
+    scoring reads exactly those (captured) fields — so each org drives its own
+    BANT from its own fields. Falls back per-dimension to the legacy hardcoded
+    keys only when the schema is absent or has no field tagged for this
+    dimension, keeping agents without a (tagged) schema scoring as before.
+    """
+    if schema is not None:
+        fields = schema.fields_for_bant(dimension)
+        if fields:
+            return any(bool(facts.get(f.key)) for f in fields)
+    return any(bool(facts.get(k)) for k in fallback_keys)
+
+
 class ContactQualificationEngine:
     def qualify(
         self,
@@ -30,6 +46,7 @@ class ContactQualificationEngine:
         analysis: AnalysisResult,
         conversation_outcome: str = "open",
         sticky_keys: set[str] | None = None,
+        schema=None,
     ) -> ContactQualification:
         cs = analysis.contact_signals
         intent = analysis.intent.intent
@@ -50,6 +67,8 @@ class ContactQualificationEngine:
             signals[s] = signals.get(s, 0) + 1
 
         # --- accumulate facts (new overrides, except sticky ones) ---
+        if sticky_keys is None and schema is not None:
+            sticky_keys = schema.sticky_keys()
         sticky = sticky_keys if sticky_keys is not None else _STICKY_FACTS
         facts = dict(prior.facts)
         for k, v in (cs.facts or {}).items():
@@ -60,17 +79,22 @@ class ContactQualificationEngine:
             facts[k] = v
 
         # --- BANT ---
+        # Universal signal/intent/urgency heuristics stay (they're funnel-agnostic,
+        # not business fields); the fact-based part is schema-driven per dimension
+        # with a per-dimension fallback to the legacy keys (see _bant_fact_hit).
         has = signals.__contains__
         bant = {
             "need": has("positive_interest")
             or has("appointment_requested")
-            or bool(facts.get("product_interest"))
-            or intent in (Intent.INQUIRY, Intent.SCHEDULING, Intent.NEGOTIATION),
-            "budget": has("budget_confirmed") or bool(facts.get("budget")),
-            "authority": has("decision_maker") or bool(facts.get("decision_role")),
-            "timeline": bool(facts.get("timeline"))
-            or has("ready_to_buy")
-            or urgency in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL),
+            or intent in (Intent.INQUIRY, Intent.SCHEDULING, Intent.NEGOTIATION)
+            or _bant_fact_hit("need", schema, facts, "product_interest"),
+            "budget": has("budget_confirmed")
+            or _bant_fact_hit("budget", schema, facts, "budget"),
+            "authority": has("decision_maker")
+            or _bant_fact_hit("authority", schema, facts, "decision_role"),
+            "timeline": has("ready_to_buy")
+            or urgency in (UrgencyLevel.HIGH, UrgencyLevel.CRITICAL)
+            or _bant_fact_hit("timeline", schema, facts, "timeline"),
         }
         bant_count = sum(1 for v in bant.values() if v)
         status = "qualified" if bant_count >= 3 else "qualifying" if bant_count >= 1 else "unqualified"

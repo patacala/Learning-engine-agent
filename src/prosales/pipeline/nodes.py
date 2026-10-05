@@ -374,7 +374,7 @@ def create_voice_node(engine, event_store: EventStore | None = None):
     return _make_timed_node("voice_layer", voice_layer, event_store)
 
 
-async def _qualify_contact(conversation, analysis, session, sticky_keys=None) -> dict:
+async def _qualify_contact(conversation, analysis, session, sticky_keys=None, schema=None) -> dict:
     """Per-contact qualification (universal signals) + persist facts to memory."""
     from prosales.engines.contact_qualification.engine import ContactQualificationEngine
     from prosales.engines.contact_qualification.models import ContactQualification
@@ -389,7 +389,7 @@ async def _qualify_contact(conversation, analysis, session, sticky_keys=None) ->
     prior.organization_id = conversation.organization_id
 
     qual = ContactQualificationEngine().qualify(
-        prior, analysis, conversation.outcome, sticky_keys=sticky_keys
+        prior, analysis, conversation.outcome, sticky_keys=sticky_keys, schema=schema
     )
     qual.last_conversation_id = conversation.id
     await repo.upsert(qual)
@@ -481,9 +481,8 @@ def create_store_node(
 
                         # Per-contact qualification (funnel-agnostic) for the CRM.
                         schema = state.get("qualification_schema")
-                        sticky_keys = schema.sticky_keys() if schema is not None else None
                         contact_public = await _qualify_contact(
-                            conversation, analysis, s, sticky_keys=sticky_keys
+                            conversation, analysis, s, schema=schema
                         )
 
                         out = {
