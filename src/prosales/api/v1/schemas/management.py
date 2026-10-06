@@ -215,6 +215,17 @@ class KnowledgeDocumentResponse(BaseModel):
     created_at: str | None = None
 
 
+# --- Verified outcome (CRM → learning loop) ---
+
+class OutcomeUpdateRequest(BaseModel):
+    """A verified outcome pushed by the CRM (e.g. a completed payment) so the
+    learning loop re-scores the conversation's moves with real ground truth
+    instead of only Cognition's inferred outcome."""
+
+    outcome: str
+    outcome_notes: str = ""
+
+
 # --- Outbound ---
 
 class OutboundCallRequest(BaseModel):

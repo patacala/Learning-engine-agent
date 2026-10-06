@@ -3,6 +3,7 @@
 All endpoints require Bearer org_api_key → resolves OrganizationModel → scopes to that org.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -30,6 +31,7 @@ from prosales.api.v1.schemas.management import (
     KnowledgeDocumentResponse,
     OutboundCallRequest,
     OutboundCallResponse,
+    OutcomeUpdateRequest,
     PersonalityPayload,
     RulePayload,
     StrategyPayload,
@@ -38,11 +40,13 @@ from prosales.api.v1.schemas.management import (
     VersionResponse,
     VoiceConfigPayload,
 )
+from prosales.api.v1.endpoints.episode import _propagate_outcome_to_clusters
 from prosales.channels.voice.outbound import OutboundCallService
 from prosales.config import settings
 from prosales.core.models.qualification_schema import QualificationField, default_schema
 from prosales.di.container import create_llm_provider
 from prosales.engines.knowledge.indexer import index_document
+from prosales.services.live_learning import run_live_learning
 from prosales.services.brief_extractor import (
     BriefExtractor,
     merge_identity,
@@ -53,7 +57,9 @@ from prosales.services.brief_extractor import (
 from prosales.infrastructure.agent.resolver import invalidate_agent_context, invalidate_agent_version_cache
 from prosales.infrastructure.agent.templates import assign_agent_to_org, create_agent_from_template
 from prosales.infrastructure.cache.redis import RedisCache
-from prosales.infrastructure.database.models import KnowledgeDocumentModel
+from prosales.infrastructure.database.connection import async_session_factory
+from prosales.infrastructure.database.models import ConversationModel, KnowledgeDocumentModel
+from prosales.infrastructure.database.repositories.episodic import SQLEpisodicRepository
 from prosales.infrastructure.database.models_agent import (
     AgentIdentityModel,
     AgentModel,
@@ -67,6 +73,8 @@ from prosales.infrastructure.database.models_agent import (
     OrganizationAgentModel,
     OrganizationModel,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/management", tags=["management"])
 
@@ -1023,6 +1031,56 @@ async def delete_knowledge(
         raise HTTPException(status_code=404, detail="Document not found")
     await session.delete(doc)
     await session.flush()
+
+
+# ==================== CONVERSATIONS (verified outcome) ====================
+
+@router.post("/conversations/{conversation_id}/outcome")
+async def report_conversation_outcome(
+    conversation_id: uuid.UUID,
+    body: OutcomeUpdateRequest,
+    org: OrganizationModel = Depends(get_authenticated_org),
+) -> dict:
+    """Record a CRM-verified outcome (e.g. a completed payment) and feed it to
+    the learning loop as real ground truth.
+
+    The CRM reaches this under /management (Bearer org key); the internal-token
+    episode endpoint is unreachable with that credential, and it also 404s when
+    no Episode row exists (CRM fast-ACK conversations have none).
+    """
+    session = await _get_session_from_org(org)
+
+    conversation = await session.get(ConversationModel, conversation_id)
+    if conversation is None or conversation.organization_id != org.id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Persist + COMMIT the outcome first: run_live_learning opens its OWN
+    # session (async_session_factory) and only sees the new value once it's
+    # committed — same mid-handler commit pattern as the /knowledge endpoint.
+    conversation.outcome = body.outcome
+    conversation.updated_at = datetime.utcnow()
+    await session.commit()
+
+    if conversation.learned_at is None:
+        # Not learned yet → extract + score moves with the verified outcome.
+        await run_live_learning(conversation_id)
+    else:
+        # Already learned (likely at terminal with an inferred outcome) →
+        # re-score the existing moves/clusters with the verified outcome.
+        async with async_session_factory() as learn_session:
+            async with learn_session.begin():
+                await _propagate_outcome_to_clusters(learn_session, conversation_id, body.outcome)
+
+    # Best-effort: if an Episode exists, mirror the outcome onto it too. CRM
+    # fast-ACK conversations usually have none, so a miss is expected — never 404.
+    try:
+        await SQLEpisodicRepository(session).update_feedback(
+            conversation_id, body.outcome, body.outcome_notes
+        )
+    except Exception as e:  # noqa: BLE001 — episode mirror is non-essential
+        logger.warning("Episode feedback mirror failed (non-fatal): %s", e)
+
+    return {"status": "ok", "outcome": body.outcome}
 
 
 # ==================== OUTBOUND CALLS ====================
