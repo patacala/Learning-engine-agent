@@ -223,6 +223,7 @@ async def _run_pipeline_and_reply(
     organization_id: UUID,
     extra_context: dict | None = None,
     contact_id: str | None = None,
+    store_user_message: bool = True,
 ) -> None:
     contact = (extra_context or {}).get("contact") if isinstance(extra_context, dict) else None
     if contact and "opt-out" in (contact.get("tags") or []):
@@ -261,7 +262,7 @@ async def _run_pipeline_and_reply(
             client_id=client_id,
             conversation_id=conversation_id,
             agent_context=agent_context,
-            store_user_message=True,
+            store_user_message=store_user_message,
             extra_context=extra_context,
             tool_executor=tool_executor,
             qualification_schema=schema,
@@ -349,8 +350,30 @@ async def crm_inbound(
         "upcoming_appointments": [a.model_dump() for a in body.upcoming_appointments],
         "payment_services": [s.model_dump() for s in body.payment_services],
         "payment_currency": body.payment_currency,
-        "channel": body.payload.channel,
+        "channel": body.payload.channel or "system",
     }
+
+    # System events (e.g. payment.received/expired) are NOT user utterances:
+    # they carry a confirmed fact the agent must acknowledge and continue from.
+    # Run immediately (no debounce) and do not persist the message as a user
+    # turn — see store_user_message=False below.
+    if body.event_type != "message.received":
+        extra_context["system_event"] = {
+            "type": body.event_type,
+            "message": body.payload.message,
+        }
+        background_tasks.add_task(
+            _run_pipeline_and_reply,
+            body.payload.message,
+            client_id,
+            conversation_id,
+            agent_context,
+            agent_context.organization_id,
+            extra_context,
+            body.contact_id,
+            store_user_message=False,
+        )
+        return {"status": "accepted", "conversation_id": str(conversation_id)}
 
     if settings.crm_debounce_seconds <= 0:
         # Debounce disabled: one message = one run, immediately.

@@ -320,6 +320,23 @@ class PromptBuilder(BaseEngine):
         if not extra:
             return ""
 
+        # System event (e.g. a confirmed payment): a fact the agent must treat
+        # as true and continue from — NOT something the customer said. Rendered
+        # first and prominently so it outranks the passive reference data below.
+        system_event_str = ""
+        system_event = extra.get("system_event")
+        if system_event:
+            if isinstance(system_event, dict):
+                event_message = system_event.get("message")
+            else:
+                event_message = system_event
+            if event_message:
+                system_event_str = (
+                    "SYSTEM EVENT (confirmed fact — the customer did NOT say this; "
+                    "acknowledge it and continue naturally):\n"
+                    f"{event_message}"
+                )
+
         lines: list[str] = []
 
         contact = extra.get("contact") or {}
@@ -357,9 +374,15 @@ class PromptBuilder(BaseEngine):
                 price = f" — {amount} {currency}".rstrip() if amount is not None else ""
                 lines.append(f"- {s.get('name', 'service')}{price}")
 
-        if not lines:
-            return ""
-        return "EXTERNAL CONTEXT (from CRM, already known — don't re-ask):\n" + "\n".join(lines)
+        external_str = ""
+        if lines:
+            external_str = (
+                "EXTERNAL CONTEXT (from CRM, already known — don't re-ask):\n"
+                + "\n".join(lines)
+            )
+
+        sections = [s for s in (system_event_str, external_str) if s]
+        return "\n\n".join(sections)
 
     def _format_actions_hint(self, state: dict[str, Any]) -> str:
         """When the Action Layer is active (the agent can call CRM tools), tell

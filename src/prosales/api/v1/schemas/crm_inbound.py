@@ -40,7 +40,7 @@ class CRMInboundPaymentService(BaseModel):
 
 class CRMInboundPayload(BaseModel):
     message: str
-    channel: str
+    channel: str | None = None
 
 
 class CRMInboundRequest(BaseModel):
