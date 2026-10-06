@@ -28,7 +28,7 @@ _CONTEXT_TEMPERATURE = 0.3
 # fragment belongs to. The stored result is still "{context}\\n\\n{chunk}".
 _FULL_DOC_TOKEN_BUDGET = 6_000
 _EXCERPT_TOKEN_BUDGET = 2_000
-_CONTEXT_CONCURRENCY = 8
+_CONTEXT_CONCURRENCY = 16
 
 _SYSTEM_PROMPT = (
     "You situate a document fragment within its source document so it can be "
@@ -59,10 +59,9 @@ async def generate_chunk_context(
             LLMMessage(role="system", content=_SYSTEM_PROMPT),
             LLMMessage(
                 role="user",
-                content=_USER_TEMPLATE.format(
-                    document_content=f"{document_title}\n\n{document_content}",
-                    chunk_text=chunk_text,
-                ),
+                content=_USER_TEMPLATE.replace(
+                    "{document_content}", f"{document_title}\n\n{document_content}"
+                ).replace("{chunk_text}", chunk_text),
             ),
         ],
         max_tokens=_CONTEXT_MAX_TOKENS,

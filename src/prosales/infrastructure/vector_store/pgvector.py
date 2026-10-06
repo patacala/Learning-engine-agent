@@ -8,7 +8,12 @@ from prosales.infrastructure.llm.clients import get_openai_client
 class PGVectorStore:
     """Simple PGVector-based vector store using OpenAI embeddings."""
 
-    def __init__(self, session: AsyncSession, api_key: str | None = None, organization_id=None):
+    def __init__(
+        self,
+        session: AsyncSession | None = None,
+        api_key: str | None = None,
+        organization_id=None,
+    ):
         self.session = session
         self.openai = get_openai_client(api_key)  # shared embedding client
         self.organization_id = organization_id

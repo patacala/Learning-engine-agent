@@ -960,10 +960,13 @@ async def index_knowledge(
     org: OrganizationModel = Depends(get_authenticated_org),
 ) -> KnowledgeDocumentResponse:
     """Index a knowledge document scoped to this org."""
-    session = await _get_session_from_org(org)
+    # Auth already read the org. Commit that transaction before contextual
+    # retrieval: a long file holds the request open for the LLM calls, and an
+    # idle-in-transaction timeout kills only that one entry.
+    request_session = await _get_session_from_org(org)
+    await request_session.commit()
 
     doc = await index_document(
-        session,
         title=body.title,
         content=body.content,
         category=body.category,
