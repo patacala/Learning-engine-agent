@@ -8,6 +8,13 @@ from prosales.engines.strategy.scorers import DEFAULT_SCORERS, BaseScorer
 
 _BASE_SCORE = 0.3
 
+# Strategies whose tactics assume a prior (closed) relationship with the client
+# ("reference their previous interest", "since their last interaction"). Without
+# any episodic history that past does not exist, so these must never be selected
+# on a first contact — a misclassified follow_up intent would otherwise make the
+# agent fabricate a shared history. See REACTIVATION tactics in the catalog.
+_RELATIONSHIP_DEPENDENT = frozenset({StrategyType.REACTIVATION.value})
+
 
 def select_strategy(
     analysis: AnalysisResult,
@@ -35,6 +42,12 @@ def select_strategy(
 
     # Round scores
     combined = {k: round(v, 2) for k, v in combined.items()}
+
+    # Drop relationship-dependent strategies when there is no prior relationship
+    # evidence, so they can never win on a first contact (see _RELATIONSHIP_DEPENDENT).
+    if not client_episodes:
+        for strategy_value in _RELATIONSHIP_DEPENDENT:
+            combined.pop(strategy_value, None)
 
     # 3. Sort candidates
     candidates = sorted(combined.keys(), key=lambda k: combined[k], reverse=True)

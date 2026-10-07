@@ -1,8 +1,7 @@
-import pytest
+from types import SimpleNamespace
 
-from prosales.core.enums import Intent, Sentiment, StrategyType
-from prosales.core.models.analysis import AnalysisResult, IntentResult, SentimentResult, StageResult
-from prosales.core.enums import ConversationStage
+from prosales.core.enums import ConversationStage, Intent, StrategyType
+from prosales.core.models.analysis import AnalysisResult, IntentResult, StageResult
 from prosales.engines.strategy.selector import select_strategy
 
 
@@ -41,6 +40,26 @@ def test_greeting_maps_to_rapport_building():
     analysis = AnalysisResult(intent=IntentResult(intent=Intent.GREETING, confidence=0.95))
     strategy_type, trace = select_strategy(analysis)
     assert strategy_type == StrategyType.RAPPORT_BUILDING
+
+
+def test_reactivation_suppressed_without_episodic_history():
+    """REACTIVATION's tactics reference a past interaction ("reference their
+    previous interest", "since their last interaction"). With no episodic history
+    that past does not exist, so the strategy must not even be a candidate —
+    otherwise a misclassified follow_up intent on a first contact makes the agent
+    invent a shared history."""
+    analysis = AnalysisResult(intent=IntentResult(intent=Intent.FOLLOW_UP, confidence=0.95))
+    strategy_type, trace = select_strategy(analysis, client_episodes=None)
+    assert strategy_type != StrategyType.REACTIVATION
+    assert StrategyType.REACTIVATION.value not in trace.scores
+
+
+def test_reactivation_available_with_episodic_history():
+    """With real episodic history the strategy stays available (not over-suppressed)."""
+    analysis = AnalysisResult(intent=IntentResult(intent=Intent.FOLLOW_UP, confidence=0.9))
+    episode = SimpleNamespace(strategies_used=["reactivation"], outcome="converted")
+    _, trace = select_strategy(analysis, client_episodes=[episode])
+    assert StrategyType.REACTIVATION.value in trace.scores
 
 
 def test_selector_combines_scorer_signals():

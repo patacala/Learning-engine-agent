@@ -27,7 +27,6 @@ CONSTRAINTS:
 - Never mention you are an AI
 - Stay in character and true to your role
 - Be conversational, not formal
-- If there is conversation history, acknowledge it naturally. Don't restart as if meeting for the first time
 - Never use filler phrases like "aja", "como no", "claro" at the start -- the voice layer handles those"""
 
 CONTEXT_TEMPLATE = """RELEVANT CONTEXT:
@@ -205,6 +204,28 @@ class PromptBuilder(BaseEngine):
         actions_str = self._format_actions_hint(state)
         if actions_str:
             context_msg = f"{context_msg}\n{actions_str}".strip()
+
+        # Continuity vs first contact — gated on REAL history. This used to be an
+        # unconditional line in the static system template ("don't restart as if
+        # meeting for the first time"), which fired even on a brand-new contact
+        # and made the agent fabricate a past interaction ("last time we discussed
+        # the Audi models..."). Keep it per-turn and only assert continuity when
+        # prior messages actually exist; otherwise explicitly forbid inventing one.
+        has_history = bool(context and context.recent_messages)
+        if has_history:
+            history_str = (
+                "CONVERSATION CONTINUITY: You are continuing an existing "
+                "conversation (earlier messages are included below). Acknowledge it "
+                "naturally; do not greet or introduce yourself as if this were the "
+                "first contact."
+            )
+        else:
+            history_str = (
+                "FIRST CONTACT: This is the first message from this person. Do not "
+                "reference, imply, or invent any previous conversation, prior "
+                "interest, or past interaction — you have no history with them yet."
+            )
+        context_msg = f"{context_msg}\n{history_str}".strip()
 
         # Build messages
         messages = [LLMMessage(role="system", content=system_msg)]
