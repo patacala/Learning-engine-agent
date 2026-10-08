@@ -30,8 +30,11 @@ class QualificationField(BaseModel):
     # CRM target: a native contact field (email/phone/full_name) or a custom_fields key.
     # Empty → defaults to `key`.
     crm_field: str = ""
-    # First-write-wins: once captured, a later turn must not overwrite it (e.g. product_interest).
+    # First-write-wins: once captured, a later turn must not overwrite it.
     sticky: bool = False
+    # Extra guidance injected into the extractor so it captures the right thing
+    # and doesn't conflate fields (e.g. the car model vs the type of operation).
+    hint: str = ""
     enabled: bool = True
     # Which BANT dimension capturing this field satisfies (need|budget|authority|
     # timeline), or None if it doesn't feed scoring. Lets each org drive its own
@@ -69,9 +72,15 @@ DEFAULT_QUALIFICATION_FIELDS: list[QualificationField] = [
     QualificationField(key="phone", label="Phone", type="phone",
                        ask_priority="early", required_for_scheduling=True, crm_field="phone"),
     QualificationField(key="product_interest", label="Product of interest", type="text",
-                       sticky=True, crm_field="product_interest", bant_dimension="need"),
+                       crm_field="product_interest", bant_dimension="need",
+                       hint="The specific product/model the lead wants RIGHT NOW (e.g. "
+                            "'Audi Q5', 'Q7'). If it changes during the chat, capture the "
+                            "latest one. This is the product itself, NEVER the type of operation."),
     QualificationField(key="service_needed", label="Type of service/operation", type="text",
-                       crm_field="service_needed"),
+                       crm_field="service_needed",
+                       hint="The operation the lead wants on the product: purchase/compra, "
+                            "lease, financing, or trade-in. This is the SERVICE, NEVER the "
+                            "product/model."),
     QualificationField(key="purchase_timeline", label="When they plan to buy", type="text",
                        crm_field="timeline", bant_dimension="timeline"),
     QualificationField(key="has_budget", label="Has budget", type="boolean",

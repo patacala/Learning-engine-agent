@@ -85,17 +85,40 @@ def test_facts_merge_and_survive():
     assert q2.facts == {"product_interest": "Q4", "budget": "50k"}
 
 
-def test_product_interest_is_sticky_not_overwritten():
+def test_product_interest_protected_on_scheduling_turn():
     # Turn 1: customer asks about the Audi A5 — product_interest captured.
     q1 = ENGINE.qualify(ContactQualification(), _a(Intent.INQUIRY, Sentiment.POSITIVE,
                         ConversationStage.DISCOVERY, facts={"product_interest": "Audi A5"}))
-    # Turn 2: customer wants to schedule a visit; a noisy extraction tries to set
-    # product_interest to the scheduling intent. It must NOT clobber "Audi A5".
+    # Turn 2 is a SCHEDULING turn; a noisy extraction tries to set
+    # product_interest to the scheduling action. It must NOT clobber "Audi A5"
+    # because anchor facts are protected on scheduling turns.
     q2 = ENGINE.qualify(q1, _a(Intent.SCHEDULING, Sentiment.POSITIVE,
                         ConversationStage.CLOSING,
                         facts={"product_interest": "agendar visita", "timeline": "mañana"}))
     assert q2.facts["product_interest"] == "Audi A5"
-    assert q2.facts["timeline"] == "mañana"  # non-sticky facts still update
+    assert q2.facts["timeline"] == "mañana"  # non-protected facts still update
+
+
+def test_product_interest_refines_on_non_scheduling_turn():
+    # Turn 1: lead is interested in the Q5.
+    q1 = ENGINE.qualify(ContactQualification(), _a(Intent.INQUIRY, Sentiment.POSITIVE,
+                        ConversationStage.DISCOVERY, facts={"product_interest": "Q5"}))
+    # Turn 2 (still exploring/negotiating): the real interest shifts to the Q7.
+    # It must UPDATE — the latest genuine product interest wins.
+    q2 = ENGINE.qualify(q1, _a(Intent.NEGOTIATION, Sentiment.POSITIVE,
+                        ConversationStage.NEGOTIATION, facts={"product_interest": "Q7"}))
+    assert q2.facts["product_interest"] == "Q7"
+
+
+def test_service_needed_protected_on_scheduling_turn():
+    # service_needed is an anchor fact too: it must not be clobbered on a
+    # scheduling turn, mirroring product_interest.
+    q1 = ENGINE.qualify(ContactQualification(), _a(Intent.INQUIRY, Sentiment.POSITIVE,
+                        ConversationStage.DISCOVERY, facts={"service_needed": "financing"}))
+    q2 = ENGINE.qualify(q1, _a(Intent.SCHEDULING, Sentiment.POSITIVE,
+                        ConversationStage.CLOSING,
+                        facts={"service_needed": "agendar visita"}))
+    assert q2.facts["service_needed"] == "financing"
 
 
 def test_to_public_shape():

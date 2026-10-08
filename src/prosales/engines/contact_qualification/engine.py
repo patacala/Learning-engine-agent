@@ -16,11 +16,17 @@ _NEGATIVE = {Sentiment.NEGATIVE, Sentiment.VERY_NEGATIVE}
 _POSITIVE_SIGNALS = {"positive_interest", "appointment_requested", "ready_to_buy", "budget_confirmed"}
 _NEGATIVE_SIGNALS = {"not_interested", "price_objection", "comparing_competitors"}
 
-# Facts that are first-write-wins: once captured, a later turn must NOT overwrite
-# them. The product/service the contact is interested in (e.g. "Audi A5") is the
-# anchor of the whole conversation — a later "agendar una visita" turn would
-# otherwise clobber product_interest with the scheduling intent and lose it.
-_STICKY_FACTS = {"product_interest"}
+# No fact is globally first-write-wins by default: the product the contact is
+# interested in must be free to REFINE across the chat (e.g. Q5 -> Q7), so the
+# last genuine mention wins. An agent can still opt a field into first-write-wins
+# via its schema (QualificationField.sticky).
+_STICKY_FACTS: set[str] = set()
+
+# Anchor facts protected ONLY on a scheduling turn: that turn carries no new
+# product/service info, and the extractor occasionally mislabels the scheduling
+# action as product_interest ("agendar visita"). Protecting them there prevents
+# that clobber without blocking normal refinement on inquiry/discovery turns.
+_SCHEDULING_PROTECTED = {"product_interest", "service_needed"}
 
 
 def _bant_fact_hit(dimension: str, schema, facts: dict, *fallback_keys: str) -> bool:
@@ -69,7 +75,9 @@ class ContactQualificationEngine:
         # --- accumulate facts (new overrides, except sticky ones) ---
         if sticky_keys is None and schema is not None:
             sticky_keys = schema.sticky_keys()
-        sticky = sticky_keys if sticky_keys is not None else _STICKY_FACTS
+        sticky = set(sticky_keys) if sticky_keys is not None else set(_STICKY_FACTS)
+        if intent == Intent.SCHEDULING:
+            sticky |= _SCHEDULING_PROTECTED
         facts = dict(prior.facts)
         for k, v in (cs.facts or {}).items():
             if not v:

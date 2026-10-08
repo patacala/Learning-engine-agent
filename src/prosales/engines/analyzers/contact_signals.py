@@ -60,6 +60,8 @@ def build_facts_instruction(schema) -> str:
         elif f.type:
             desc += f"; {f.type}"
         desc += ")"
+        if f.hint:
+            desc += f" — {f.hint}"
         lines.append(desc)
     return (
         "Hechos (facts): extraé SOLO estos campos si el cliente los menciona "

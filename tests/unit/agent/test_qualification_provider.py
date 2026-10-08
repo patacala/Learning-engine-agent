@@ -41,7 +41,9 @@ class FakeCache:
 
 def test_schema_helpers():
     s = default_schema()
-    assert "product_interest" in s.sticky_keys()
+    # product_interest must NOT be sticky: it has to refine across the chat
+    # (e.g. Q5 -> Q7); no default field is first-write-wins.
+    assert s.sticky_keys() == set()
     req = {f.key for f in s.required_for_scheduling()}
     assert req == {"full_name", "email", "phone"}
     # target() falls back to key when crm_field is empty

@@ -28,3 +28,12 @@ def test_schema_lists_exact_keys():
 
 def test_empty_schema_falls_back():
     assert "ej:" in build_facts_instruction(QualificationSchema(fields=[]))
+
+
+def test_field_hint_is_injected():
+    schema = QualificationSchema(fields=[
+        QualificationField(key="product_interest", label="Product of interest", type="text",
+                           hint="The car model, never the operation."),
+    ])
+    instr = build_facts_instruction(schema)
+    assert "product_interest (Product of interest; text) — The car model, never the operation." in instr
