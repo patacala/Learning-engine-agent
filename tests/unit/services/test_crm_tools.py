@@ -219,3 +219,77 @@ async def test_execute_http_error_returns_error_dict(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
     result = await _executor().execute("get_available_slots", {"from": "a", "to": "b"})
     assert "error" in result
+
+
+# --- communication tools (send_email / send_sms) --------------------------
+
+
+def test_send_email_and_sms_hide_injected_fields():
+    schemas = {t["name"]: t for t in tool_schemas()}
+    for name in ("send_email", "send_sms"):
+        props = schemas[name]["parameters"]["properties"]
+        assert "contact_id" not in props
+        assert "conversation_id" not in props
+
+
+def test_communication_tools_gated_behind_appointment_capability():
+    ex = _executor()
+    ex.actions_enabled = False
+    names = {t["name"] for t in ex.tool_schemas()}
+    assert "send_email" not in names
+    assert "send_sms" not in names
+    ex.actions_enabled = True
+    names = {t["name"] for t in ex.tool_schemas()}
+    assert {"send_email", "send_sms"} <= names
+
+
+@pytest.mark.asyncio
+async def test_send_email_blocked_without_known_email():
+    ex = _executor()  # known_fields empty
+    result = await ex.execute("send_email", {"subject": "Quote", "body": "..."})
+    assert result["error"] == "missing_required_fields"
+    assert result["fields"] == ["email"]
+
+
+@pytest.mark.asyncio
+async def test_send_sms_blocked_without_known_phone():
+    ex = _executor()
+    result = await ex.execute("send_sms", {"message": "Hi"})
+    assert result["error"] == "missing_required_fields"
+    assert result["fields"] == ["phone"]
+
+
+@pytest.mark.asyncio
+async def test_send_email_proceeds_when_email_known(monkeypatch):
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"sent": True, "message_id": "m-1"}
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json=None, headers=None):
+            captured["json"] = json
+            return FakeResp()
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+    ex = _executor()
+    ex.known_fields.add("email")
+    result = await ex.execute("send_email", {"subject": "Quote", "body": "Audi Q5 pricing"})
+
+    assert result == {"sent": True, "message_id": "m-1"}
+    assert captured["json"]["tool"] == "send_email"
+    assert captured["json"]["input"]["contact_id"] == "contact-123"
+    assert captured["json"]["input"]["subject"] == "Quote"

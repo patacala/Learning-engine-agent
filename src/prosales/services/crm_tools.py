@@ -143,9 +143,54 @@ TOOL_SPECS: list[dict] = [
         # capability — opting out is the user's right, not a sales feature.
         "always_available": True,
     },
+    {
+        "name": "send_email",
+        "description": (
+            "Email this contact the information they asked for (e.g. a quote, "
+            "vehicle details, or next steps). Compose a clear subject and body. "
+            "Use only when the customer agrees to or asks for an email. If the "
+            "result contains an 'error', do NOT claim the email was sent — tell "
+            "the customer you couldn't send it and offer an alternative."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "subject": {"type": "string", "description": "Email subject line."},
+                "body": {
+                    "type": "string",
+                    "description": "Email body; include the requested information.",
+                },
+            },
+            "required": ["subject", "body"],
+        },
+        "inject": {"contact_id": "contact_id", "conversation_id": "conversation_id"},
+    },
+    {
+        "name": "send_sms",
+        "description": (
+            "Text this contact a short SMS with information they asked for. Use "
+            "ONLY when the customer explicitly asks to receive something by SMS. "
+            "Do NOT use it to confirm an appointment — that confirmation SMS is "
+            "sent automatically when the booking is created. If the result "
+            "contains an 'error', do NOT claim the SMS was sent."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "SMS text to send."},
+            },
+            "required": ["message"],
+        },
+        "inject": {"contact_id": "contact_id", "conversation_id": "conversation_id"},
+    },
 ]
 
 _SPECS_BY_NAME = {s["name"]: s for s in TOOL_SPECS}
+
+# Communication tools can only reach a contact through a channel we already have
+# on file: email for send_email, phone for send_sms. Maps tool name -> the
+# known_fields key that must be present before it can run.
+_CONTACT_CHANNEL_REQS = {"send_email": "email", "send_sms": "phone"}
 
 # Native CRM contact fields (everything else lands in custom_fields).
 _NATIVE_CONTACT_FIELDS = {"first_name", "last_name", "full_name", "email", "phone"}
@@ -385,6 +430,20 @@ class CRMToolExecutor:
                         f"(via update_contact): {', '.join(missing)}."
                     ),
                 }
+
+        # Communication gate: can't email/text a contact whose email/phone we
+        # don't have yet. Return a recoverable error so the agent collects it
+        # (via update_contact) and retries, instead of calling the CRM blindly.
+        channel_field = _CONTACT_CHANNEL_REQS.get(name)
+        if channel_field and channel_field not in self.known_fields:
+            return {
+                "error": "missing_required_fields",
+                "fields": [channel_field],
+                "message": (
+                    f"Cannot {name.replace('_', ' ')} yet: no {channel_field} on "
+                    f"file. First collect and save it via update_contact."
+                ),
+            }
 
         payload = {
             "agent_id": self.agent_id,
