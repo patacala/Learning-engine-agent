@@ -62,7 +62,12 @@ Intents válidos: greeting, inquiry, comparison, objection, negotiation, schedul
   para encontrarse.
 
 --- sentiment ---
-Analizá el sentimiento del mensaje.
+Evaluá el sentimiento del CLIENTE hacia la conversación y la compra, leyendo el
+mensaje EN EL CONTEXTO de los mensajes anteriores — no solo la carga emocional de
+la frase aislada. Un cliente que pregunta, da datos o muestra interés activo es
+positive (very_positive si hay entusiasmo claro); neutral SOLO cuando no hay
+ninguna señal de disposición; negative/very_negative ante rechazo, molestia o
+desinterés.
 Sentiments válidos: very_positive, positive, neutral, negative, very_negative
 
 --- stage ---

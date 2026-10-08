@@ -111,6 +111,11 @@ class ContactQualificationEngine:
         score = cs.buying_intent
         score += 0.15 * sum(1 for s in _POSITIVE_SIGNALS if has(s))
         score -= 0.15 * sum(1 for s in _NEGATIVE_SIGNALS if has(s))
+        # Captured qualifying data (BANT) warms the lead even without explicit
+        # buying signals: someone who already told us the product/budget/authority/
+        # timeline is further along than a silent one. Previously only `readiness`
+        # reflected this, so the temperature never moved as facts were captured.
+        score += 0.1 * bant_count
         if sentiment in _POSITIVE:
             score += 0.1
         elif sentiment in _NEGATIVE:

@@ -28,14 +28,37 @@ def _a(intent, sentiment, stage, signals=None, facts=None, buying=0.0, urgency=U
 ENGINE = ContactQualificationEngine()
 
 
-def test_interest_is_warm_qualifying():
+def test_engaged_interest_with_product_is_hot_qualifying():
+    # Positive interest + positive sentiment + a product already identified now
+    # reads as hot: captured qualifying data contributes to the temperature
+    # (previously this exact turn sat right under the hot threshold at warm).
     q = ENGINE.qualify(
         ContactQualification(),
         _a(Intent.INQUIRY, Sentiment.POSITIVE, ConversationStage.DISCOVERY,
            signals=["positive_interest"], facts={"product_interest": "Q4"}, buying=0.4),
     )
-    assert q.temperature == "warm"
+    assert q.temperature == "hot"
     assert q.status == "qualifying"
+
+
+def test_captured_bant_facts_raise_temperature():
+    # Fix C: capturing qualifying data must move the score, not just readiness.
+    # Same low-buying greeting turn — one bare, one with product/budget/authority/
+    # timeline captured. The qualified one scores strictly hotter.
+    bare = ENGINE.qualify(
+        ContactQualification(),
+        _a(Intent.GREETING, Sentiment.NEUTRAL, ConversationStage.DISCOVERY, buying=0.2),
+    )
+    with_facts = ENGINE.qualify(
+        ContactQualification(),
+        _a(Intent.GREETING, Sentiment.NEUTRAL, ConversationStage.DISCOVERY, buying=0.2,
+           facts={"product_interest": "Q5", "budget": "50k",
+                  "decision_role": "owner", "timeline": "this month"}),
+    )
+    assert with_facts.readiness > bare.readiness
+    assert sum(with_facts.bant.values()) > sum(bare.bant.values())
+    assert bare.temperature == "cold"
+    assert with_facts.temperature in ("warm", "hot")
 
 
 def test_full_bant_scheduled_is_hot_qualified_advance():

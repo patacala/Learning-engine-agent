@@ -8,12 +8,27 @@ from prosales.infrastructure.llm.provider import LLMMessage, LLMProvider
 
 logger = logging.getLogger(__name__)
 
-SENTIMENT_PROMPT = """Analyze the sentiment of this message.
+SENTIMENT_PROMPT = """Evaluate the CUSTOMER's sentiment toward the conversation
+and the purchase, reading the message IN THE CONTEXT of the previous messages —
+not just the isolated emotional charge of the phrase. A customer who asks
+questions, shares data, or shows active interest is positive (very_positive on
+clear enthusiasm); neutral ONLY when there is no sign of disposition;
+negative/very_negative on rejection, annoyance, or disinterest.
+
 Return JSON: {{"sentiment": "<sentiment>", "score": <-1 to 1>, "emotions": ["<emotion1>"]}}
 
 Valid sentiments: very_positive, positive, neutral, negative, very_negative
 
+Previous messages:
+{context}
+
 Message: {message}"""
+
+
+def _format_context(context: dict[str, Any] | None) -> str:
+    if context and context.get("recent_messages"):
+        return "\n".join(f"{m.role}: {m.content}" for m in context["recent_messages"][-5:])
+    return "(none)"
 
 
 class SentimentDetector(BaseDetector):
@@ -26,7 +41,12 @@ class SentimentDetector(BaseDetector):
             result = await self.llm.complete_json(
                 messages=[
                     LLMMessage(role="system", content="You are a sentiment analyzer."),
-                    LLMMessage(role="user", content=SENTIMENT_PROMPT.format(message=text)),
+                    LLMMessage(
+                        role="user",
+                        content=SENTIMENT_PROMPT.format(
+                            message=text, context=_format_context(context)
+                        ),
+                    ),
                 ],
                 model=self.model,
             )
