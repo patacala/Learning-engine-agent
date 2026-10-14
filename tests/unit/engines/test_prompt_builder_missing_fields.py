@@ -51,7 +51,7 @@ def test_required_for_scheduling_is_flagged():
                            required_for_scheduling=True, crm_field="email"),
     )
     out = PromptBuilder()._format_missing_fields({"qualification_schema": schema})
-    assert "Required before booking" in out
+    assert "proposing a time" in out
     assert "Email" in out
 
 

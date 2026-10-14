@@ -41,9 +41,10 @@ def test_lists_missing_early_first():
     assert "Phone" not in out
     # Missing: full_name, email (early), has_budget.
     assert "Full name" in out and "Email" in out and "Has budget" in out
-    # Required-before-booking line mentions the missing required fields.
-    assert "Required before booking" in out
-    assert "Full name" in out.split("Required before booking")[1]
+    # The proactive-qualification line (collected before proposing a time)
+    # mentions the missing required fields.
+    assert "proposing a time" in out
+    assert "Full name" in out.split("proposing a time")[1]
 
 
 def test_nothing_missing_returns_empty():

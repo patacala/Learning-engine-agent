@@ -481,7 +481,12 @@ class PromptBuilder(BaseEngine):
         ]
         rest = [f for f in missing if f.ask_priority != "early"]
 
-        lines: list[str] = ["DATA TO CAPTURE:"]
+        lines: list[str] = [
+            "DATA TO CAPTURE (qualify the lead — the more of these you capture, "
+            "the better qualified the lead, and a lead who willingly shares them "
+            "is signaling real interest; collect with intention but never "
+            "interrogate):"
+        ]
         if name_fields:
             lines.append(
                 "- Right after greeting, ask for their name directly and "
@@ -503,7 +508,9 @@ class PromptBuilder(BaseEngine):
         required_missing = [f.label for f in missing if f.required_for_scheduling]
         if required_missing:
             lines.append(
-                f"- Required before booking an appointment: {', '.join(required_missing)}"
+                f"- Collect these proactively to qualify the lead, well before "
+                f"proposing a time (they are required before booking, so don't "
+                f"wait until then): {', '.join(required_missing)}"
             )
         return "\n".join(lines)
 
