@@ -111,7 +111,7 @@ def build_cognitive_graph(
     conversation_manager = ConversationManager()
     identity_engine = IdentityEngine(identity_provider=identity_provider)
     if knowledge_engine is None:
-        knowledge_engine = KnowledgeEngine(session_factory)
+        knowledge_engine = KnowledgeEngine(session_factory, llm=analyzer_llm, model=analyzer_model)
     decision_engine = DecisionEngine(rule_provider=rule_provider)
     strategy_engine = StrategyEngine(strategy_provider=strategy_provider)
     planner_engine = SalesPlannerEngine()

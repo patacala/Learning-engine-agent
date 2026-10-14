@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # quality regresses — see tests/evals/.
     use_unified_analyzer: bool = True
 
+    # RAG retrieval: hybrid (dense + lexical, RRF-fused) then an LLM reranker.
+    # Either can be flipped off to fall back to pure vector top_k — see the
+    # KnowledgeEngine and tests/evals/.
+    use_hybrid_search: bool = True
+    use_reranker: bool = True
+
     # App
     app_env: str = "development"
     log_level: str = "INFO"

@@ -1,19 +1,26 @@
 import logging
 from typing import Any
 
+from prosales.config import settings
 from prosales.core.interfaces.engine import BaseEngine
 from prosales.engines.knowledge.models import KnowledgeResult
+from prosales.engines.knowledge.reranker import LLMReranker
 from prosales.infrastructure.vector_store.pgvector import PGVectorStore
 
 logger = logging.getLogger(__name__)
 
+_FINAL_K = 6  # documents handed to the response
+
 
 class KnowledgeEngine(BaseEngine):
     """RAG engine using PGVector. Opens a short session per retrieval so the DB
-    connection is not held across the LLM-heavy nodes."""
+    connection is not held across the LLM-heavy nodes. When enabled, retrieval
+    is hybrid (dense + lexical, RRF-fused) followed by an LLM reranker; both are
+    feature-flagged and degrade to pure vector search on any failure."""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory, llm=None, model: str = "gpt-4o-mini"):
         self._sf = session_factory
+        self.reranker = LLMReranker(llm, model) if llm is not None else None
 
     async def process(self, state: dict[str, Any]) -> dict[str, Any]:
         message = state["current_message"]
@@ -34,7 +41,19 @@ class KnowledgeEngine(BaseEngine):
                 if embedding is None:
                     embedding = await store.embed(message)
                     updates["message_embedding"] = embedding
-                documents = await store.search_by_embedding(embedding, top_k=6)
+                if settings.use_hybrid_search:
+                    # Over-fetch a recall-oriented pool for the reranker to refine.
+                    candidates = await store.search_hybrid(
+                        message, embedding, top_k=_FINAL_K * 3
+                    )
+                else:
+                    candidates = await store.search_by_embedding(embedding, top_k=_FINAL_K)
+
+            # Rerank OUTSIDE the DB session so the LLM call never holds the connection.
+            if settings.use_reranker and self.reranker and len(candidates) > _FINAL_K:
+                documents = await self.reranker.rerank(message, candidates, top_k=_FINAL_K)
+            else:
+                documents = candidates[:_FINAL_K]
             result = KnowledgeResult(documents=documents, query_used=message)
         except Exception:
             logger.exception("Knowledge retrieval failed")

@@ -33,7 +33,7 @@ async def test_knowledge_engine_embeds_once_and_surfaces_it_in_state():
     with patch("prosales.engines.knowledge.engine.PGVectorStore") as MockStore:
         store = MockStore.return_value
         store.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
-        store.search_by_embedding = AsyncMock(return_value=[])
+        store.search_hybrid = AsyncMock(return_value=[])
 
         result = await engine.process({"current_message": "hola", "agent_context": None})
 
@@ -54,7 +54,7 @@ async def test_knowledge_engine_reuses_embedding_already_in_state():
     with patch("prosales.engines.knowledge.engine.PGVectorStore") as MockStore:
         store = MockStore.return_value
         store.embed = AsyncMock(side_effect=AssertionError("must not re-embed"))
-        store.search_by_embedding = AsyncMock(return_value=[])
+        store.search_hybrid = AsyncMock(return_value=[])
 
         result = await engine.process({
             "current_message": "hola",
@@ -63,7 +63,7 @@ async def test_knowledge_engine_reuses_embedding_already_in_state():
         })
 
     store.embed.assert_not_called()
-    store.search_by_embedding.assert_awaited_once_with([0.9, 0.9, 0.9], top_k=6)
+    store.search_hybrid.assert_awaited_once_with("hola", [0.9, 0.9, 0.9], top_k=18)
     # Didn't compute a new one, so it shouldn't re-announce it either.
     assert "message_embedding" not in result
 
