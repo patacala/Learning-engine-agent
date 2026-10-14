@@ -46,7 +46,7 @@ from prosales.config import settings
 from prosales.core.models.qualification_schema import QualificationField, default_schema
 from prosales.di.container import create_llm_provider
 from prosales.engines.knowledge.indexer import index_document
-from prosales.services.live_learning import run_live_learning
+from prosales.services.live_learning import approve_moves_for_conversation, run_live_learning
 from prosales.services.brief_extractor import (
     BriefExtractor,
     merge_identity,
@@ -1070,6 +1070,13 @@ async def report_conversation_outcome(
         async with async_session_factory() as learn_session:
             async with learn_session.begin():
                 await _propagate_outcome_to_clusters(learn_session, conversation_id, body.outcome)
+
+    # Ground truth from the CRM: approve this conversation's moves so they
+    # cluster and become retrievable plays (this is what closes the learning
+    # loop — without it, moves stay pending forever and proven_plays is empty).
+    async with async_session_factory() as approve_session:
+        async with approve_session.begin():
+            await approve_moves_for_conversation(approve_session, conversation_id)
 
     # Best-effort: if an Episode exists, mirror the outcome onto it too. CRM
     # fast-ACK conversations usually have none, so a miss is expected — never 404.

@@ -50,6 +50,37 @@ def outcome_signals(outcome: str) -> tuple[bool, bool]:
     return appointment, purchase
 
 
+async def approve_moves_for_conversation(session, conversation_id) -> None:
+    """Move this conversation's extracted moves out of the `pending` pool:
+    approve them, which clusters them and feeds RAG (see MoveApprover.approve).
+    Called only when the outcome is trustworthy enough to learn from — a
+    CRM-verified outcome (ground truth) or a confident terminal negative.
+    Positive-outcome moves become retrievable proven plays; negative-outcome
+    moves still cluster, dragging their cluster's success_rate so retrieval
+    stays discriminating. Idempotent: already-approved moves are skipped.
+    """
+    from prosales.infrastructure.database.repositories.evidence import SQLEvidenceRepository
+    from prosales.infrastructure.database.repositories.moves import SQLMovesRepository
+    from prosales.infrastructure.vector_store.pgvector import PGVectorStore
+    from prosales.services.learning_pipeline import MoveApprover
+
+    try:
+        source_id = await SQLEvidenceRepository(session).find_by_conversation(conversation_id)
+        if source_id is None:
+            return
+        moves_repo = SQLMovesRepository(session)
+        pending = [m for m in await moves_repo.list_by_source(source_id) if m.status == "pending"]
+        if not pending:
+            return
+        approver = MoveApprover(
+            session, vector_store=PGVectorStore(session, organization_id=pending[0].organization_id)
+        )
+        for m in pending:
+            await approver.approve(m.id)
+    except Exception as e:  # noqa: BLE001 — approval must never block the caller
+        logger.warning("Move auto-approval failed (non-fatal): %s", e)
+
+
 async def run_live_learning(conversation_id: UUID) -> None:
     """Idempotent: extracts + scores pending moves for a terminal conversation once."""
     try:
@@ -108,6 +139,14 @@ async def run_live_learning(conversation_id: UUID) -> None:
                         purchase=purchase,
                     ).score
                     await moves_repo.set_score(m.id, new_score)
+
+                # A confident terminal negative (lost) is reliable enough to
+                # learn from: cluster these moves as negatives so they drag the
+                # success_rate of plays that don't work, keeping retrieval
+                # discriminating. Positives are NEVER approved here — only on
+                # CRM-verified ground truth (see the verified-outcome endpoint).
+                if outcome == "lost":
+                    await approve_moves_for_conversation(db, conversation_id)
 
                 conv.learned_at = datetime.utcnow()
         logger.info("live learning complete for conversation %s (outcome=%s)", conversation_id, outcome)
