@@ -41,7 +41,7 @@ from prosales.api.v1.schemas.management import (
     VoiceConfigPayload,
 )
 from prosales.api.v1.endpoints.episode import _propagate_outcome_to_clusters
-from prosales.channels.voice.outbound import OutboundCallService
+from prosales.channels.voice.outbound import OutboundCallError, OutboundCallService
 from prosales.config import settings
 from prosales.core.models.qualification_schema import QualificationField, default_schema
 from prosales.di.container import create_llm_provider
@@ -1106,15 +1106,18 @@ async def create_outbound_call(
     await _verify_version_belongs_to_org(session, body.agent_version_id, org.id)
 
     service = OutboundCallService()
-    data = await service.initiate(
-        to_number=body.to_number,
-        from_number=body.from_number,
-        organization_id=str(org.id),
-        agent_version_id=str(body.agent_version_id),
-        retell_agent_id=body.retell_agent_id,
-        api_key=body.retell_api_key,
-        extra_metadata=body.metadata,
-    )
+    try:
+        data = await service.initiate(
+            to_number=body.to_number,
+            from_number=body.from_number,
+            organization_id=str(org.id),
+            agent_version_id=str(body.agent_version_id),
+            retell_agent_id=body.retell_agent_id,
+            api_key=body.retell_api_key,
+            extra_metadata=body.metadata,
+        )
+    except OutboundCallError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return OutboundCallResponse(
         call_id=data.get("call_id", data.get("id", "")),

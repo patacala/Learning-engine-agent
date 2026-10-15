@@ -231,7 +231,9 @@ class OutcomeUpdateRequest(BaseModel):
 class OutboundCallRequest(BaseModel):
     agent_version_id: UUID
     to_number: str
-    from_number: str
+    # Optional. The CRM stores the Retell agent id, not the phone number.
+    # When this is absent, ProSales looks up the number bound to that agent.
+    from_number: str | None = None
     metadata: dict | None = None
     # Per-org Retell credentials, supplied by the CRM per call. ProSales uses
     # them to place the call and never stores them; it falls back to the global
