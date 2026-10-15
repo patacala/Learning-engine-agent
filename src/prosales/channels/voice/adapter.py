@@ -13,6 +13,7 @@ from prosales.channels.voice.providers.base import VoiceChunk, VoiceProvider
 from prosales.channels.voice.session import VoiceSession, VoiceSessionManager
 from prosales.channels.voice.streaming import split_into_sentences
 from prosales.core.models.agent import AgentContext
+from prosales.channels.voice.crm_resolver import resolve_org_by_phone
 from prosales.infrastructure.agent.resolver import AgentContextResolver, resolve_by_ids
 from prosales.infrastructure.cache.redis import RedisCache
 from prosales.infrastructure.database.models import ConversationModel
@@ -69,11 +70,26 @@ class VoiceAdapter:
                         db_session, UUID(str(org_id)), UUID(str(ver_id))
                     )
                 else:
-                    # Inbound: resolve by api_key
-                    api_key = metadata.get("api_key") or nested_meta.get("api_key")
-                    if api_key and self.cache:
-                        resolver = AgentContextResolver(db_session, self.cache)
-                        agent_context = await resolver.resolve(api_key)
+                    # Inbound: ask the CRM which org owns the dialed number, then
+                    # resolve by IDs — ProSales stores no number->org mapping nor
+                    # any Retell credential. Falls back to the legacy api_key path.
+                    dialed = (
+                        metadata.get("to_number") or nested_meta.get("to_number")
+                        or metadata.get("callee_number") or nested_meta.get("callee_number")
+                    )
+                    resolved = await resolve_org_by_phone(dialed)
+                    if resolved:
+                        from uuid import UUID
+                        agent_context = await resolve_by_ids(
+                            db_session,
+                            UUID(str(resolved["organization_id"])),
+                            UUID(str(resolved["agent_version_id"])),
+                        )
+                    else:
+                        api_key = metadata.get("api_key") or nested_meta.get("api_key")
+                        if api_key and self.cache:
+                            resolver = AgentContextResolver(db_session, self.cache)
+                            agent_context = await resolver.resolve(api_key)
 
                 organization_id = (
                     agent_context.organization_id if agent_context else None

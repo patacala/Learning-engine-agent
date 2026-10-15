@@ -61,8 +61,12 @@ class Settings(BaseSettings):
     cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     # Voice
-    retell_api_key: str = ""
+    retell_api_key: str = ""  # optional global fallback; per-org keys come per-call from the CRM
     crm_webhook_url: str = ""
+    # CRM API base URL — used to resolve which org owns an inbound call's dialed
+    # number (reverse of crm_webhook_url, which only receives events). Authed
+    # with internal_api_token as a shared ProSales<->CRM secret.
+    crm_base_url: str = ""
 
     # Provisioning
     provisioning_secret: str = ""

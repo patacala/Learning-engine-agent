@@ -836,6 +836,49 @@ class TestOutbound:
         _cleanup()
 
     @pytest.mark.asyncio
+    async def test_outbound_passes_per_call_retell_creds(self):
+        # The CRM supplies the org's Retell key per call; ProSales forwards it to
+        # the service (never stored) and accepts it even with no global key.
+        org = _override_org()
+        version = _mock_version()
+
+        mock_session = _mock_session()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = version
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        with (
+            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("prosales.api.v1.endpoints.management.settings") as mock_settings,
+            patch("prosales.api.v1.endpoints.management.OutboundCallService") as MockService,
+        ):
+            mock_settings.retell_api_key = ""  # no global key — per-call must suffice
+            MockService.return_value.initiate = AsyncMock(
+                return_value={"call_id": "call_789", "status": "initiated"}
+            )
+
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post(
+                    "/api/v1/management/outbound-calls",
+                    json={
+                        "agent_version_id": str(version.id),
+                        "to_number": "+111",
+                        "from_number": "+222",
+                        "retell_api_key": "org-retell-key",
+                        "retell_agent_id": "agent-abc",
+                    },
+                    headers={"Authorization": f"Bearer {ORG_API_KEY}"},
+                )
+
+            assert response.status_code == 200
+            call_args = MockService.return_value.initiate.call_args
+            assert call_args.kwargs["api_key"] == "org-retell-key"
+            assert call_args.kwargs["retell_agent_id"] == "agent-abc"
+
+        _cleanup()
+
+    @pytest.mark.asyncio
     async def test_outbound_returns_call_id(self):
         org = _override_org()
         version = _mock_version()

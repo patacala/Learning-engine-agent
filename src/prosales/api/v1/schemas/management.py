@@ -233,6 +233,11 @@ class OutboundCallRequest(BaseModel):
     to_number: str
     from_number: str
     metadata: dict | None = None
+    # Per-org Retell credentials, supplied by the CRM per call. ProSales uses
+    # them to place the call and never stores them; it falls back to the global
+    # key only when they are absent.
+    retell_api_key: str | None = None
+    retell_agent_id: str | None = None
 
 
 class OutboundCallResponse(BaseModel):

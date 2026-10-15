@@ -1097,8 +1097,9 @@ async def create_outbound_call(
     body: OutboundCallRequest,
     org: OrganizationModel = Depends(get_authenticated_org),
 ) -> OutboundCallResponse:
-    """Initiate an outbound call via Retell. Metadata carries only IDs, never secrets."""
-    if not settings.retell_api_key:
+    """Initiate an outbound call via Retell. The org's Retell key comes per-call
+    from the CRM (body) and is never stored; metadata carries only IDs."""
+    if not (body.retell_api_key or settings.retell_api_key):
         raise HTTPException(status_code=400, detail="Voice provider not configured")
 
     session = await _get_session_from_org(org)
@@ -1110,6 +1111,8 @@ async def create_outbound_call(
         from_number=body.from_number,
         organization_id=str(org.id),
         agent_version_id=str(body.agent_version_id),
+        retell_agent_id=body.retell_agent_id,
+        api_key=body.retell_api_key,
         extra_metadata=body.metadata,
     )
 

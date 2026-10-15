@@ -21,12 +21,17 @@ class OutboundCallService:
         organization_id: str,
         agent_version_id: str,
         retell_agent_id: str | None = None,
+        api_key: str | None = None,
         extra_metadata: dict | None = None,
     ) -> dict:
         """POST to Retell to create an outbound phone call.
 
+        ``api_key`` is the org's Retell key, passed per-call by the CRM and never
+        stored. Falls back to the global key only when absent.
+
         Returns the Retell response dict (call_id, status, etc).
         """
+        retell_key = api_key or settings.retell_api_key
         metadata = {
             "organization_id": organization_id,
             "agent_version_id": agent_version_id,
@@ -47,7 +52,7 @@ class OutboundCallService:
                 RETELL_CREATE_CALL_URL,
                 json=payload,
                 headers={
-                    "Authorization": f"Bearer {settings.retell_api_key}",
+                    "Authorization": f"Bearer {retell_key}",
                     "Content-Type": "application/json",
                 },
                 timeout=10.0,
