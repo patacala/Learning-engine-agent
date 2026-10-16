@@ -16,24 +16,31 @@ from prosales.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def resolve_org_by_phone(phone: str | None) -> dict | None:
-    """Return {"organization_id", "agent_version_id"} for the org that owns
-    ``phone``, or None. Best-effort: never raises, so a CRM outage degrades to
-    an unresolved (default) agent instead of dropping the call."""
-    if not phone or not settings.crm_base_url or not settings.internal_api_token:
+async def resolve_org_for_call(agent_id: str | None, number: str | None = None) -> dict | None:
+    """Return {"organization_id", "agent_version_id"} for the org that owns this
+    inbound call, or None. The Retell agent id is the primary key (the same
+    agent is configured on the org's voice channel); the dialed number is sent
+    as a fallback. Best-effort: never raises, so a CRM outage degrades to an
+    unresolved (default) agent instead of dropping the call."""
+    if not (agent_id or number) or not settings.crm_base_url or not settings.internal_api_token:
         return None
     url = f"{settings.crm_base_url.rstrip('/')}/api/v1/integrations/voice/resolve"
+    params = {}
+    if agent_id:
+        params["agent"] = agent_id
+    if number:
+        params["number"] = number
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 url,
-                params={"number": phone},
+                params=params,
                 headers={"x-internal-token": settings.internal_api_token},
             )
             resp.raise_for_status()
             data = resp.json()
     except Exception as e:  # noqa: BLE001 — resolution is best-effort
-        logger.warning("CRM phone resolve failed for %s: %s", phone, e)
+        logger.warning("CRM voice resolve failed (agent=%s number=%s): %s", agent_id, number, e)
         return None
 
     if data.get("organization_id") and data.get("agent_version_id"):

@@ -13,7 +13,7 @@ from prosales.channels.voice.providers.base import VoiceChunk, VoiceProvider
 from prosales.channels.voice.session import VoiceSession, VoiceSessionManager
 from prosales.channels.voice.streaming import split_into_sentences
 from prosales.core.models.agent import AgentContext
-from prosales.channels.voice.crm_resolver import resolve_org_by_phone
+from prosales.channels.voice.crm_resolver import resolve_org_for_call
 from prosales.infrastructure.agent.resolver import AgentContextResolver, resolve_by_ids
 from prosales.infrastructure.cache.redis import RedisCache
 from prosales.infrastructure.database.models import ConversationModel
@@ -70,14 +70,17 @@ class VoiceAdapter:
                         db_session, UUID(str(org_id)), UUID(str(ver_id))
                     )
                 else:
-                    # Inbound: ask the CRM which org owns the dialed number, then
-                    # resolve by IDs — ProSales stores no number->org mapping nor
-                    # any Retell credential. Falls back to the legacy api_key path.
+                    # Inbound: identify the org by the Retell agent that answered
+                    # (the same agent configured on the org's voice channel). Ask
+                    # the CRM to resolve it; the dialed number is a fallback.
+                    # ProSales stores no agent/number->org mapping nor any Retell
+                    # credential. Falls back to the legacy api_key path.
+                    agent_id = metadata.get("agent_id") or nested_meta.get("agent_id")
                     dialed = (
                         metadata.get("to_number") or nested_meta.get("to_number")
                         or metadata.get("callee_number") or nested_meta.get("callee_number")
                     )
-                    resolved = await resolve_org_by_phone(dialed)
+                    resolved = await resolve_org_for_call(agent_id, dialed)
                     if resolved:
                         from uuid import UUID
                         agent_context = await resolve_by_ids(
