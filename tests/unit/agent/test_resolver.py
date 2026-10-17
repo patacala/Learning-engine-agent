@@ -8,6 +8,7 @@ import pytest
 from prosales.core.models.agent import AgentContext
 from prosales.infrastructure.agent.resolver import (
     AgentContextResolver,
+    resolve_by_version_id,
     resolve_published_version,
 )
 from prosales.infrastructure.security.api_keys import hash_api_key
@@ -210,5 +211,69 @@ async def test_resolve_published_version_missing(mock_session):
     )
 
     ctx = await resolve_published_version(mock_session, uuid.uuid4())
+
+    assert ctx is None
+
+
+def _assignment_result(assignment_row):
+    """resolve_by_version_id reads the assignment via .scalars().first()."""
+    return MagicMock(
+        scalars=MagicMock(
+            return_value=MagicMock(first=MagicMock(return_value=assignment_row))
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_resolve_by_version_id_derives_org_from_assignment(mock_session):
+    """Inbound voice resolves by version id and derives the tenant from the
+    assignment — the CRM's own org id is never used."""
+    org_id = uuid.uuid4()
+    agent_id = uuid.uuid4()
+    version_id = uuid.uuid4()
+
+    results = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=_make_version_row(version_id, agent_id))),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=_make_agent_row(agent_id))),
+        _assignment_result(_make_assignment_row(org_id, version_id)),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=_make_org_row(org_id=org_id))),
+    ]
+    mock_session.execute = AsyncMock(side_effect=results)
+
+    ctx = await resolve_by_version_id(mock_session, version_id)
+
+    assert ctx is not None
+    assert ctx.organization_id == org_id
+    assert ctx.agent_version_id == version_id
+    assert ctx.agent_name == "Sales Bot"
+    assert ctx.agent_capabilities == ["voice", "negotiation"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_by_version_id_unpublished_returns_none(mock_session):
+    """An unpublished / unknown version yields no context (no org lookup)."""
+    mock_session.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    )
+
+    ctx = await resolve_by_version_id(mock_session, uuid.uuid4())
+
+    assert ctx is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_by_version_id_no_assignment_returns_none(mock_session):
+    """A published version with no active assignment yields no context."""
+    agent_id = uuid.uuid4()
+    version_id = uuid.uuid4()
+
+    results = [
+        MagicMock(scalar_one_or_none=MagicMock(return_value=_make_version_row(version_id, agent_id))),
+        MagicMock(scalar_one_or_none=MagicMock(return_value=_make_agent_row(agent_id))),
+        _assignment_result(None),
+    ]
+    mock_session.execute = AsyncMock(side_effect=results)
+
+    ctx = await resolve_by_version_id(mock_session, version_id)
 
     assert ctx is None

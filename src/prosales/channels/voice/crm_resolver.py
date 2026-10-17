@@ -53,4 +53,13 @@ async def resolve_org_for_call(agent_id: str | None, number: str | None = None) 
             "organization_id": data["organization_id"],
             "agent_version_id": data["agent_version_id"],
         }
+    # 200 but no usable ids → the call degrades to the generic (default) agent.
+    # Log the keys the CRM actually returned so this silent failure is
+    # diagnosable (the agent likely isn't mapped to an agent_version in the CRM).
+    logger.warning(
+        "CRM voice resolve returned no org/agent_version (agent=%s number=%s): keys=%s",
+        agent_id,
+        number,
+        sorted(data.keys()) if isinstance(data, dict) else type(data).__name__,
+    )
     return None

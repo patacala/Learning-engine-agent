@@ -163,6 +163,77 @@ async def resolve_by_ids(
     )
 
 
+async def resolve_by_version_id(
+    session: AsyncSession,
+    agent_version_id: UUID,
+) -> AgentContext | None:
+    """Resolve AgentContext from a published version id alone, deriving the
+    tenant from the primary org<->agent assignment.
+
+    Inbound voice uses this. The CRM is the source of truth for WHICH agent
+    answers a call, but it returns its OWN organization id — a different id
+    space than ProSales' (the CRM stores only base_url/api_key/agent_version_id,
+    never ProSales' org id). Only ``agent_version_id`` is a ProSales-owned id,
+    so we trust that and look the org up from it instead of the CRM's org id,
+    which would never match an OrganizationModel row here.
+    """
+    version = (
+        await session.execute(
+            select(AgentVersionModel).where(
+                AgentVersionModel.id == agent_version_id,
+                AgentVersionModel.is_published.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if version is None:
+        return None
+
+    agent = (
+        await session.execute(
+            select(AgentModel).where(AgentModel.id == version.agent_id)
+        )
+    ).scalar_one_or_none()
+    if agent is None:
+        return None
+
+    # Derive the tenant from this version's assignment (prefer the primary).
+    assignment = (
+        await session.execute(
+            select(OrganizationAgentModel)
+            .where(
+                OrganizationAgentModel.agent_version_id == agent_version_id,
+                OrganizationAgentModel.is_active.is_(True),
+            )
+            .order_by(OrganizationAgentModel.is_primary.desc())
+        )
+    ).scalars().first()
+    if assignment is None:
+        return None
+
+    org = (
+        await session.execute(
+            select(OrganizationModel).where(
+                OrganizationModel.id == assignment.organization_id,
+                OrganizationModel.is_active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if org is None:
+        return None
+
+    return AgentContext(
+        organization_id=org.id,
+        organization_name=org.name,
+        org_capabilities=org.capabilities or [],
+        timezone=org.timezone,
+        agent_id=agent.id,
+        agent_version_id=version.id,
+        agent_name=agent.name,
+        agent_type=agent.agent_type,
+        agent_capabilities=version.capabilities or [],
+    )
+
+
 class AgentContextResolver:
     def __init__(self, session: AsyncSession, cache: RedisCache | None = None):
         self.session = session

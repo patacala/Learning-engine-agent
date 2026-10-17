@@ -14,7 +14,11 @@ from prosales.channels.voice.session import VoiceSession, VoiceSessionManager
 from prosales.channels.voice.streaming import split_into_sentences
 from prosales.core.models.agent import AgentContext
 from prosales.channels.voice.crm_resolver import resolve_org_for_call
-from prosales.infrastructure.agent.resolver import AgentContextResolver, resolve_by_ids
+from prosales.infrastructure.agent.resolver import (
+    AgentContextResolver,
+    resolve_by_ids,
+    resolve_by_version_id,
+)
 from prosales.infrastructure.cache.redis import RedisCache
 from prosales.infrastructure.database.models import ConversationModel
 from prosales.infrastructure.database.repositories.client import SQLClientRepository
@@ -83,11 +87,25 @@ class VoiceAdapter:
                     resolved = await resolve_org_for_call(agent_id, dialed)
                     if resolved:
                         from uuid import UUID
-                        agent_context = await resolve_by_ids(
+                        # Resolve by agent_version_id only: it is the one
+                        # ProSales-owned id in the CRM's response. The CRM's
+                        # organization_id is its own id space and never matches
+                        # an OrganizationModel here, so we derive the tenant from
+                        # the version instead.
+                        agent_context = await resolve_by_version_id(
                             db_session,
-                            UUID(str(resolved["organization_id"])),
                             UUID(str(resolved["agent_version_id"])),
                         )
+                        if agent_context is None:
+                            # The version doesn't resolve to a published version
+                            # of an active org in ProSales — the call would
+                            # silently degrade to the generic agent. Surface it.
+                            logger.warning(
+                                "Voice resolve: CRM returned agent_version=%s "
+                                "but no published version / active org in ProSales "
+                                "— call degrades to generic agent",
+                                resolved["agent_version_id"],
+                            )
                     else:
                         api_key = metadata.get("api_key") or nested_meta.get("api_key")
                         if api_key and self.cache:
@@ -320,7 +338,9 @@ class VoiceAdapter:
 
                         event_repo = SQLEventRepository(db_session)
                         episodic_repo = SQLEpisodicRepository(db_session)
-                        extractor = EpisodeExtractor(event_repo)
+                        extractor = EpisodeExtractor(
+                            event_repo, SQLConversationRepository(db_session)
+                        )
                         episodic_engine = EpisodicMemoryEngine(
                             extractor=extractor, episodic_repo=episodic_repo
                         )
