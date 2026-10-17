@@ -86,6 +86,11 @@ async def voice_websocket(
                 case "session_start":
                     await adapter.on_session_start(session_id, event.metadata)
                     session_started = True
+                    # Agent speaks first: providers stay silent until the caller
+                    # talks, so emit the opening turn (response_id 0) on connect.
+                    async for chunk in adapter.on_call_opening(session_id):
+                        msg = await provider.format_response(chunk, 0)
+                        await websocket.send_json(msg)
                 case "user_speech":
                     async for chunk in adapter.on_user_speech(
                         session_id, event.transcript or ""

@@ -177,6 +177,48 @@ class VoiceAdapter:
 
         logger.info("Voice session started: %s", session_id)
 
+    async def on_call_opening(
+        self, session_id: str
+    ) -> AsyncGenerator[VoiceChunk, None]:
+        """Emit the agent's opening turn right after the call connects.
+
+        Voice providers (Retell) stay silent until the caller speaks, so the
+        agent would otherwise never greet first. We run the SAME cognitive
+        pipeline with a synthetic greeting trigger — reusing the resolved agent
+        identity and the warm_opening path, so the opening matches the agent
+        (e.g. the dealership) instead of a generic assistant. The trigger is not
+        persisted (store_user_message=False), so it never pollutes history."""
+        session = await self.session_manager.get(session_id)
+        if not session:
+            logger.warning("No session found for opening %s", session_id)
+            return
+
+        # Best-effort opening: a malformed agent_context or a transient
+        # pipeline/LLM/network failure on this first synthetic turn must NOT
+        # abort the call. Degrade to no greeting and let the caller speak —
+        # same except-and-continue contract as crm_resolver.
+        try:
+            agent_context = None
+            if session.agent_context_data:
+                agent_context = AgentContext.model_validate(session.agent_context_data)
+
+            runner = PipelineRunner(self.session_factory, cache=self.cache)
+            result = await runner.run(
+                message="Hola",
+                client_id=session.client_id,
+                conversation_id=session.conversation_id,
+                agent_context=agent_context,
+                store_user_message=False,
+            )
+        except Exception as e:  # noqa: BLE001 — opening is best-effort
+            logger.warning("Voice opening failed for %s: %s", session_id, e)
+            return
+
+        sentences = split_into_sentences(result.voice_text)
+        for i, sentence in enumerate(sentences):
+            is_last = i == len(sentences) - 1
+            yield VoiceChunk(content=sentence, end_of_turn=is_last)
+
     async def on_user_speech(
         self, session_id: str, transcript: str
     ) -> AsyncGenerator[VoiceChunk, None]:

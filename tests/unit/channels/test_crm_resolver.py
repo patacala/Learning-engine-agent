@@ -65,6 +65,29 @@ async def test_sends_agent_as_primary_and_returns_ids(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_unwraps_crm_data_envelope(monkeypatch):
+    """The CRM wraps every response in {data: {...}, timestamp}; the ids live
+    under "data". Reading them at the root silently yields a generic agent."""
+    monkeypatch.setattr(crm_resolver.settings, "crm_base_url", "https://crm.example.com/")
+    monkeypatch.setattr(crm_resolver.settings, "internal_api_token", "shared-secret")
+    captured: dict = {}
+    monkeypatch.setattr(
+        httpx, "AsyncClient",
+        _fake_client(
+            captured,
+            {
+                "data": {"organization_id": "org-1", "agent_version_id": "ver-1"},
+                "timestamp": "2026-10-16T00:00:00Z",
+            },
+        ),
+    )
+
+    out = await crm_resolver.resolve_org_for_call("agent_x", "+1234567890")
+
+    assert out == {"organization_id": "org-1", "agent_version_id": "ver-1"}
+
+
+@pytest.mark.asyncio
 async def test_best_effort_on_error_returns_none(monkeypatch):
     monkeypatch.setattr(crm_resolver.settings, "crm_base_url", "https://crm.example.com")
     monkeypatch.setattr(crm_resolver.settings, "internal_api_token", "shared-secret")

@@ -38,10 +38,15 @@ async def resolve_org_for_call(agent_id: str | None, number: str | None = None) 
                 headers={"x-internal-token": settings.internal_api_token},
             )
             resp.raise_for_status()
-            data = resp.json()
+            payload = resp.json()
     except Exception as e:  # noqa: BLE001 — resolution is best-effort
         logger.warning("CRM voice resolve failed (agent=%s number=%s): %s", agent_id, number, e)
         return None
+
+    # The CRM wraps every response in {data: {...}, timestamp}; the ids live
+    # under "data". Fall back to the raw payload if it's ever returned flat.
+    inner = payload.get("data") if isinstance(payload, dict) else None
+    data = inner if isinstance(inner, dict) else (payload if isinstance(payload, dict) else {})
 
     if data.get("organization_id") and data.get("agent_version_id"):
         return {
