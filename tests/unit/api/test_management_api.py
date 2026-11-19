@@ -8,10 +8,10 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.dependencies import get_authenticated_org, get_db_session, verify_provisioning_secret
-from prosales.api.v1.endpoints.management import router as management_router
-from prosales.api.v1.endpoints.provisioning import router as provisioning_router
-from prosales.infrastructure.database.models_agent import (
+from learning_engine.api.v1.dependencies import get_authenticated_org, get_db_session, verify_provisioning_secret
+from learning_engine.api.v1.endpoints.management import router as management_router
+from learning_engine.api.v1.endpoints.provisioning import router as provisioning_router
+from learning_engine.infrastructure.database.models_agent import (
     AgentIdentityModel,
     AgentModel,
     AgentPersonalityModel,
@@ -23,7 +23,7 @@ from prosales.infrastructure.database.models_agent import (
     OrganizationAgentModel,
     OrganizationModel,
 )
-from prosales.infrastructure.security.api_keys import hash_api_key
+from learning_engine.infrastructure.security.api_keys import hash_api_key
 
 app = FastAPI()
 app.include_router(provisioning_router, prefix="/api/v1")
@@ -119,7 +119,7 @@ class TestProvisioning:
 
         org = _mock_org(slug="new-org")
 
-        with patch("prosales.api.v1.endpoints.provisioning.create_organization", new_callable=AsyncMock) as mock_create:
+        with patch("learning_engine.api.v1.endpoints.provisioning.create_organization", new_callable=AsyncMock) as mock_create:
             # No existing org
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = None
@@ -169,7 +169,7 @@ class TestProvisioning:
         # Don't override provisioning check — let it validate
         _cleanup()
 
-        with patch("prosales.api.v1.dependencies.settings") as mock_settings:
+        with patch("learning_engine.api.v1.dependencies.settings") as mock_settings:
             mock_settings.provisioning_secret = "real-secret"
 
             transport = ASGITransport(app=app)
@@ -222,9 +222,9 @@ class TestAgents:
         mock_session = _mock_session()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.create_agent_from_template", new_callable=AsyncMock) as mock_create,
-            patch("prosales.api.v1.endpoints.management.assign_agent_to_org", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.create_agent_from_template", new_callable=AsyncMock) as mock_create,
+            patch("learning_engine.api.v1.endpoints.management.assign_agent_to_org", new_callable=AsyncMock),
         ):
             mock_create.return_value = (agent, version)
 
@@ -254,7 +254,7 @@ class TestAgents:
         mock_result.all.return_value = [(agent, version)]
         mock_session.execute = AsyncMock(return_value=mock_result)
 
-        with patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
+        with patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.get(
@@ -291,7 +291,7 @@ class TestAgents:
             side_effect=[mock_result_verify, mock_result_refetch, mock_result_version]
         )
 
-        with patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
+        with patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.patch(
@@ -331,9 +331,9 @@ class TestVersions:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management._deep_copy_version_config", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management._deep_copy_version_config", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -369,9 +369,9 @@ class TestVersions:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management._deep_copy_version_config", new_callable=AsyncMock) as mock_copy,
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management._deep_copy_version_config", new_callable=AsyncMock) as mock_copy,
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -404,9 +404,9 @@ class TestVersions:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -439,9 +439,9 @@ class TestConfig:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -492,7 +492,7 @@ class TestConfig:
 
         mock_session.execute = AsyncMock(side_effect=[mock_result_verify, mock_result_identity])
 
-        with patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
+        with patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.get(
@@ -520,9 +520,9 @@ class TestConfig:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             rules = [
                 {"rule_id": "r1", "action_type": "greet", "intent": "greeting", "priority": 10},
@@ -557,9 +557,9 @@ class TestConfig:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             strategies = [{
                 "strategy_type": "consultive",
@@ -598,9 +598,9 @@ class TestConfig:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.invalidate_agent_version_cache", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -643,8 +643,8 @@ class TestAssignments:
         assignment.is_active = True
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.assign_agent_to_org", new_callable=AsyncMock, return_value=assignment),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.assign_agent_to_org", new_callable=AsyncMock, return_value=assignment),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -676,9 +676,9 @@ class TestAssignments:
         mock_cache = AsyncMock()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
-            patch("prosales.api.v1.endpoints.management.invalidate_agent_context", new_callable=AsyncMock) as mock_invalidate,
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.get_redis_cache", return_value=mock_cache),
+            patch("learning_engine.api.v1.endpoints.management.invalidate_agent_context", new_callable=AsyncMock) as mock_invalidate,
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -712,8 +712,8 @@ class TestKnowledge:
         mock_doc.created_at = datetime.utcnow()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.index_document", new_callable=AsyncMock, return_value=mock_doc),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.index_document", new_callable=AsyncMock, return_value=mock_doc),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -747,7 +747,7 @@ class TestKnowledge:
         mock_result.scalars.return_value = mock_scalars
         mock_session.execute = AsyncMock(return_value=mock_result)
 
-        with patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
+        with patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.get(
@@ -775,7 +775,7 @@ class TestKnowledge:
         mock_result.scalar_one_or_none.return_value = mock_doc
         mock_session.execute = AsyncMock(return_value=mock_result)
 
-        with patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
+        with patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.delete(
@@ -803,9 +803,9 @@ class TestOutbound:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.settings") as mock_settings,
-            patch("prosales.api.v1.endpoints.management.OutboundCallService") as MockService,
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.settings") as mock_settings,
+            patch("learning_engine.api.v1.endpoints.management.OutboundCallService") as MockService,
         ):
             mock_settings.retell_api_key = "test-retell-key"
 
@@ -837,7 +837,7 @@ class TestOutbound:
 
     @pytest.mark.asyncio
     async def test_outbound_passes_per_call_retell_creds(self):
-        # The CRM supplies the org's Retell key per call; ProSales forwards it to
+        # The CRM supplies the org's Retell key per call; LearningEngine forwards it to
         # the service (never stored) and accepts it even with no global key.
         org = _override_org()
         version = _mock_version()
@@ -848,9 +848,9 @@ class TestOutbound:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.settings") as mock_settings,
-            patch("prosales.api.v1.endpoints.management.OutboundCallService") as MockService,
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.settings") as mock_settings,
+            patch("learning_engine.api.v1.endpoints.management.OutboundCallService") as MockService,
         ):
             mock_settings.retell_api_key = ""  # no global key — per-call must suffice
             MockService.return_value.initiate = AsyncMock(
@@ -889,9 +889,9 @@ class TestOutbound:
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
-            patch("prosales.api.v1.endpoints.management.settings") as mock_settings,
-            patch("prosales.api.v1.endpoints.management.OutboundCallService") as MockService,
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=mock_session),
+            patch("learning_engine.api.v1.endpoints.management.settings") as mock_settings,
+            patch("learning_engine.api.v1.endpoints.management.OutboundCallService") as MockService,
         ):
             mock_settings.retell_api_key = "test-key"
             MockService.return_value.initiate = AsyncMock(
@@ -920,7 +920,7 @@ class TestOutbound:
     async def test_outbound_no_retell_key_returns_400(self):
         org = _override_org()
 
-        with patch("prosales.api.v1.endpoints.management.settings") as mock_settings:
+        with patch("learning_engine.api.v1.endpoints.management.settings") as mock_settings:
             mock_settings.retell_api_key = ""
 
             transport = ASGITransport(app=app)

@@ -4,14 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.core.enums import StrategyType
-from prosales.engines.strategy.evidence_bridge import (
+from learning_engine.core.enums import StrategyType
+from learning_engine.engines.strategy.evidence_bridge import (
     MOVE_KIND_TO_CATEGORY,
     StrategyEvidenceBridge,
     category_of_strategy,
     move_kinds_for_strategy,
 )
-from prosales.engines.strategy.taxonomy import StrategyCategory
+from learning_engine.engines.strategy.taxonomy import StrategyCategory
 
 
 def test_real_strategy_type_resolves_to_move_kinds():

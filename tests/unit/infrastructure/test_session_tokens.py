@@ -1,7 +1,7 @@
 """Signed session tokens: round-trip, expiry, tampering, and wrong-secret
 rejection — this is what guards the UI's login cookie."""
 
-from prosales.infrastructure.security.session_tokens import (
+from learning_engine.infrastructure.security.session_tokens import (
     create_session_token,
     verify_session_token,
 )

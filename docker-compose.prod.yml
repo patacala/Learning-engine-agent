@@ -12,14 +12,14 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: prosales
+      POSTGRES_USER: learning_engine
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: prosales
+      POSTGRES_DB: learning_engine
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prosales"]
+      test: ["CMD-SHELL", "pg_isready -U learning_engine"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -44,8 +44,8 @@ services:
     restart: unless-stopped
     environment:
       # Datastores (built from POSTGRES_PASSWORD; hostnames = compose service names)
-      DATABASE_URL: postgresql+asyncpg://prosales:${POSTGRES_PASSWORD}@postgres:5432/prosales
-      DATABASE_SYNC_URL: postgresql://prosales:${POSTGRES_PASSWORD}@postgres:5432/prosales
+      DATABASE_URL: postgresql+asyncpg://learning_engine:${POSTGRES_PASSWORD}@postgres:5432/learning_engine
+      DATABASE_SYNC_URL: postgresql://learning_engine:${POSTGRES_PASSWORD}@postgres:5432/learning_engine
       REDIS_URL: redis://redis:6379/0
       # App
       APP_ENV: production
@@ -88,8 +88,8 @@ services:
       dockerfile: Dockerfile
     entrypoint: ["python", "-m", "scripts.bootstrap_tenant"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://prosales:${POSTGRES_PASSWORD}@postgres:5432/prosales
-      DATABASE_SYNC_URL: postgresql://prosales:${POSTGRES_PASSWORD}@postgres:5432/prosales
+      DATABASE_URL: postgresql+asyncpg://learning_engine:${POSTGRES_PASSWORD}@postgres:5432/learning_engine
+      DATABASE_SYNC_URL: postgresql://learning_engine:${POSTGRES_PASSWORD}@postgres:5432/learning_engine
       REDIS_URL: redis://redis:6379/0
       BOOTSTRAP_ORG_NAME: ${BOOTSTRAP_ORG_NAME:-Default Org}
       BOOTSTRAP_ORG_SLUG: ${BOOTSTRAP_ORG_SLUG:-default}
@@ -110,8 +110,8 @@ services:
       dockerfile: Dockerfile
     entrypoint: ["python", "-m", "scripts.seed"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://prosales:${POSTGRES_PASSWORD}@postgres:5432/prosales
-      DATABASE_SYNC_URL: postgresql://prosales:${POSTGRES_PASSWORD}@postgres:5432/prosales
+      DATABASE_URL: postgresql+asyncpg://learning_engine:${POSTGRES_PASSWORD}@postgres:5432/learning_engine
+      DATABASE_SYNC_URL: postgresql://learning_engine:${POSTGRES_PASSWORD}@postgres:5432/learning_engine
       REDIS_URL: redis://redis:6379/0
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:

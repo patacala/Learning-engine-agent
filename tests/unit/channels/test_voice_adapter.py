@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from prosales.channels.voice.adapter import VoiceAdapter
-from prosales.channels.voice.providers.base import VoiceChunk, VoiceProvider
-from prosales.channels.voice.session import VoiceSession, VoiceSessionManager
+from learning_engine.channels.voice.adapter import VoiceAdapter
+from learning_engine.channels.voice.providers.base import VoiceChunk, VoiceProvider
+from learning_engine.channels.voice.session import VoiceSession, VoiceSessionManager
 
 
 class FakeRedisCache:
@@ -92,7 +92,7 @@ async def test_on_user_speech_runs_pipeline():
     )
 
     # Mock PipelineRunner
-    with patch("prosales.channels.voice.adapter.PipelineRunner") as MockRunner:
+    with patch("learning_engine.channels.voice.adapter.PipelineRunner") as MockRunner:
         mock_runner_instance = AsyncMock()
         mock_result = MagicMock()
         mock_result.voice_text = "Hola, bienvenido. ¿En qué puedo ayudarte?"
@@ -138,7 +138,7 @@ async def test_on_user_silence_uses_synthetic():
         cache=None,
     )
 
-    with patch("prosales.channels.voice.adapter.PipelineRunner") as MockRunner:
+    with patch("learning_engine.channels.voice.adapter.PipelineRunner") as MockRunner:
         mock_runner_instance = AsyncMock()
         mock_result = MagicMock()
         mock_result.voice_text = "¿Sigues ahí?"
@@ -179,7 +179,7 @@ async def test_streaming_yields_sentences():
         cache=None,
     )
 
-    with patch("prosales.channels.voice.adapter.PipelineRunner") as MockRunner:
+    with patch("learning_engine.channels.voice.adapter.PipelineRunner") as MockRunner:
         mock_runner_instance = AsyncMock()
         mock_result = MagicMock()
         mock_result.voice_text = "Primera oración. Segunda oración. Tercera oración."
@@ -224,7 +224,7 @@ async def test_on_session_end_triggers_cleanup():
     )
 
     # Patch DB model and episodic imports used inside on_session_end
-    with patch("prosales.infrastructure.database.models_voice.VoiceCallModel") as MockVCM:
+    with patch("learning_engine.infrastructure.database.models_voice.VoiceCallModel") as MockVCM:
         MockVCM.session_id = "session_id"
         await adapter.on_session_end("call-end", "normal")
 
@@ -261,9 +261,9 @@ async def test_on_session_start_creates_conversation():
     mock_client = MagicMock()
     mock_client.id = uuid4()
 
-    with patch("prosales.channels.voice.adapter.SQLClientRepository") as MockClientRepo, \
-         patch("prosales.channels.voice.adapter.SQLConversationRepository") as MockConvRepo, \
-         patch("prosales.infrastructure.database.models_voice.VoiceCallModel"):
+    with patch("learning_engine.channels.voice.adapter.SQLClientRepository") as MockClientRepo, \
+         patch("learning_engine.channels.voice.adapter.SQLConversationRepository") as MockConvRepo, \
+         patch("learning_engine.infrastructure.database.models_voice.VoiceCallModel"):
         mock_client_repo = AsyncMock()
         mock_client_repo.get_or_create.return_value = mock_client
         MockClientRepo.return_value = mock_client_repo

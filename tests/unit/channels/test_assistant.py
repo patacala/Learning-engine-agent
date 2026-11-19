@@ -6,12 +6,12 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.channels.assistant.engine import AssistantResponder
-from prosales.channels.assistant.service import (
+from learning_engine.channels.assistant.engine import AssistantResponder
+from learning_engine.channels.assistant.service import (
     AssistantService,
     AssistantSessionNotFound,
 )
-from prosales.infrastructure.llm.provider import LLMMessage, LLMResponse
+from learning_engine.infrastructure.llm.provider import LLMMessage, LLMResponse
 
 
 # --- AssistantResponder: neutral coach, standard roles ---------------------
@@ -59,14 +59,14 @@ async def test_message_stores_user_then_assistant_roles():
     service = AssistantService()
 
     with patch(
-        "prosales.channels.assistant.service.async_session_factory", fake_factory
+        "learning_engine.channels.assistant.service.async_session_factory", fake_factory
     ), patch(
-        "prosales.channels.assistant.service.SQLConversationRepository",
+        "learning_engine.channels.assistant.service.SQLConversationRepository",
         return_value=repo,
     ), patch(
-        "prosales.channels.assistant.service.create_llm_provider"
+        "learning_engine.channels.assistant.service.create_llm_provider"
     ), patch(
-        "prosales.channels.assistant.service.AssistantResponder"
+        "learning_engine.channels.assistant.service.AssistantResponder"
     ) as mock_responder:
         mock_responder.return_value.respond = AsyncMock(return_value="Vamos a ello.")
         reply = await service.message(conv.id, "Ayúdame con objeciones", agent_context=None)
@@ -92,9 +92,9 @@ async def test_message_unknown_session_raises():
     service = AssistantService()
 
     with patch(
-        "prosales.channels.assistant.service.async_session_factory", fake_factory
+        "learning_engine.channels.assistant.service.async_session_factory", fake_factory
     ), patch(
-        "prosales.channels.assistant.service.SQLConversationRepository",
+        "learning_engine.channels.assistant.service.SQLConversationRepository",
         return_value=repo,
     ):
         with pytest.raises(AssistantSessionNotFound):
@@ -117,9 +117,9 @@ async def test_message_rejects_non_assistant_channel():
     service = AssistantService()
 
     with patch(
-        "prosales.channels.assistant.service.async_session_factory", fake_factory
+        "learning_engine.channels.assistant.service.async_session_factory", fake_factory
     ), patch(
-        "prosales.channels.assistant.service.SQLConversationRepository",
+        "learning_engine.channels.assistant.service.SQLConversationRepository",
         return_value=repo,
     ):
         with pytest.raises(AssistantSessionNotFound):

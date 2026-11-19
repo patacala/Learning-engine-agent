@@ -1,9 +1,9 @@
 import pytest
 
-from prosales.engines.voice.style_adapter import adapt_to_voice
-from prosales.engines.voice.backchannel import BackchannelManager
-from prosales.engines.voice.turn_manager import TurnManager
-from prosales.engines.voice.pause_manager import PauseManager
+from learning_engine.engines.voice.style_adapter import adapt_to_voice
+from learning_engine.engines.voice.backchannel import BackchannelManager
+from learning_engine.engines.voice.turn_manager import TurnManager
+from learning_engine.engines.voice.pause_manager import PauseManager
 
 
 def test_formal_to_natural():
@@ -14,7 +14,7 @@ def test_formal_to_natural():
 
 
 def test_backchannel_on_objection():
-    from prosales.core.enums import Intent
+    from learning_engine.core.enums import Intent
     bc = BackchannelManager()
     # With probability 1.0 on objection, should always prepend
     result = bc.maybe_prepend("esto es una prueba", "es", intent=Intent.OBJECTION, probability=1.0)
@@ -23,7 +23,7 @@ def test_backchannel_on_objection():
 
 
 def test_no_backchannel_on_greeting():
-    from prosales.core.enums import Intent
+    from learning_engine.core.enums import Intent
     bc = BackchannelManager()
     # Should NEVER prepend on greeting regardless of probability
     result = bc.maybe_prepend("Hola, bienvenido", "es", intent=Intent.GREETING, probability=1.0)

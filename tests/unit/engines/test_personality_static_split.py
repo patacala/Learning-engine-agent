@@ -5,7 +5,7 @@ per turn by sentiment) into the same string as the 4 static layers, so the
 system prompt built from it never had a stable prefix — verified empirically
 that two turns of the same agent diverged at character 148."""
 
-from prosales.core.models.personality import PersonalityLayer, PersonalityProfile
+from learning_engine.core.models.personality import PersonalityLayer, PersonalityProfile
 
 
 def _profile(emotion_tone="Empático", emotion_instructions=None):

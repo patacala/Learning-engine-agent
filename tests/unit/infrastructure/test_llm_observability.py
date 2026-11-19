@@ -8,7 +8,7 @@ import asyncio
 import httpx
 import pytest
 
-from prosales.infrastructure.llm.observability import EVENT_HOOKS, LLMCallTracker
+from learning_engine.infrastructure.llm.observability import EVENT_HOOKS, LLMCallTracker
 
 
 def _client() -> httpx.AsyncClient:

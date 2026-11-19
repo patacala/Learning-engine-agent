@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.episodic.extractor import EpisodeExtractor
+from learning_engine.engines.episodic.extractor import EpisodeExtractor
 
 
 def _make_event(event_type: str, data: dict, ts_offset_seconds: int = 0):

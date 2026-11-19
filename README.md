@@ -1,6 +1,6 @@
-# ProSales — Cognitive Sales System
+# Learning Engine Agent — Cognitive Sales System
 
-ProSales is a **cognitive layer for sales conversations**: instead of a single
+Learning Engine Agent is a **cognitive layer for sales conversations**: instead of a single
 LLM call turning a message into a reply, every incoming message runs through
 an explicit pipeline of specialized engines — memory, analysis, decision,
 strategy, planning, personality, and voice — *before* the LLM ever generates
@@ -19,7 +19,7 @@ convention this repo already follows.
 ## Start here
 
 ```bash
-git clone <repo> && cd pro-cognitive-ai
+git clone <repo> && cd learning-engine-agent
 cp .env.example .env               # fill in OPENAI_API_KEY at minimum
 uv sync --extra dev                # or: pip install -e ".[dev]"
 
@@ -169,7 +169,7 @@ faster" as separate claims until re-measured.
 ## Repo layout
 
 ```
-src/prosales/
+src/learning_engine/
   api/v1/endpoints/     REST endpoints (conversation, learning, roleplay, management, ...)
   channels/             voice/ roleplay/ assistant/ — alternate conversation surfaces
   core/                 domain models, enums, interfaces — no I/O
@@ -220,11 +220,11 @@ worth knowing they exist so you know what's already enforced instead of
 re-explaining it in a prompt:
 
 - `run` / `verify` — launch the app; what to run before a commit.
-- `following-prosales-conventions` — datetime/PGVector/JSONB/enum/session/
+- `following-learning_engine-conventions` — datetime/PGVector/JSONB/enum/session/
   similarity/SSE rules (narrow, fragile, "wrong choice fails at runtime").
-- `writing-prosales-python` / `writing-prosales-frontend` — idiomatic shape
+- `writing-learning_engine-python` / `writing-learning_engine-frontend` — idiomatic shape
   of the code (the engine pattern, Pydantic DTOs, component/hook structure).
-- `using-prosales-domain-vocabulary` — Episode vs Move vs Expression vs
+- `using-learning_engine-domain-vocabulary` — Episode vs Move vs Expression vs
   Evidence vs Outcome vs Qualification, and the Organization→Agent→
   AgentVersion hierarchy.
 - `enforcing-agent-context-boundaries` — multi-tenant business rules,

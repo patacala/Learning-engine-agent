@@ -9,12 +9,12 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.dependencies import get_db_session
-from prosales.api.v1.endpoints.agents import router as agents_router
-from prosales.api.v1.endpoints.contact import router as contact_router
-from prosales.api.v1.endpoints.conversation import router as conversation_router
-from prosales.api.v1.endpoints.episode import router as episode_router
-from prosales.config import settings
+from learning_engine.api.v1.dependencies import get_db_session
+from learning_engine.api.v1.endpoints.agents import router as agents_router
+from learning_engine.api.v1.endpoints.contact import router as contact_router
+from learning_engine.api.v1.endpoints.conversation import router as conversation_router
+from learning_engine.api.v1.endpoints.episode import router as episode_router
+from learning_engine.config import settings
 
 app = FastAPI()
 app.include_router(conversation_router, prefix="/api/v1")
@@ -146,7 +146,7 @@ class TestInternalOrApiKey:
 
         try:
             with patch(
-                "prosales.api.v1.dependencies.async_session_factory", fake_factory
+                "learning_engine.api.v1.dependencies.async_session_factory", fake_factory
             ):
                 async with _client() as client:
                     response = await client.post(

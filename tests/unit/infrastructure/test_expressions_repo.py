@@ -10,7 +10,7 @@ DB-free decision logic (best_semantic_match) is what's covered here.
 
 from uuid import uuid4
 
-from prosales.infrastructure.database.repositories.expressions import best_semantic_match
+from learning_engine.infrastructure.database.repositories.expressions import best_semantic_match
 
 
 def test_merges_semantically_similar_phrase():

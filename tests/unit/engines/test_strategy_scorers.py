@@ -3,10 +3,10 @@
 import pytest
 from uuid import uuid4
 
-from prosales.core.enums import Intent, Sentiment, StrategyType
-from prosales.core.models.analysis import AnalysisResult, IntentResult, SentimentResult
-from prosales.engines.episodic.models import EpisodeSummary
-from prosales.engines.strategy.scorers import (
+from learning_engine.core.enums import Intent, Sentiment, StrategyType
+from learning_engine.core.models.analysis import AnalysisResult, IntentResult, SentimentResult
+from learning_engine.engines.episodic.models import EpisodeSummary
+from learning_engine.engines.strategy.scorers import (
     EpisodicScorer,
     IntentScorer,
     SentimentScorer,

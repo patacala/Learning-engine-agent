@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from prosales.core.enums import ConversationStage, Intent, Sentiment
-from prosales.engines.analyzers.unified import UnifiedAnalyzer
+from learning_engine.core.enums import ConversationStage, Intent, Sentiment
+from learning_engine.engines.analyzers.unified import UnifiedAnalyzer
 
 
 class FakeLLM:

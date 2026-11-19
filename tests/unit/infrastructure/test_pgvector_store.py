@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.infrastructure.vector_store.pgvector import PGVectorStore
+from learning_engine.infrastructure.vector_store.pgvector import PGVectorStore
 
 
 class _Result:

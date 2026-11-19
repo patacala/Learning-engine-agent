@@ -25,11 +25,11 @@ from sqlalchemy import text
 # approval's RAG-indexing step fails to resolve the knowledge_documents.organization_id
 # FK target and silently rolls back the ENTIRE approval transaction -- not just the
 # indexing side effect, even though the code catches that exception as "non-fatal".
-import prosales.infrastructure.database.models_agent  # noqa: F401
-from prosales.engines.knowledge.pattern_retriever import PatternRetriever
-from prosales.infrastructure.database.connection import async_session_factory
-from prosales.infrastructure.llm.provider import LLMResponse
-from prosales.services.learning_pipeline import LearningPipeline, MoveApprover
+import learning_engine.infrastructure.database.models_agent  # noqa: F401
+from learning_engine.engines.knowledge.pattern_retriever import PatternRetriever
+from learning_engine.infrastructure.database.connection import async_session_factory
+from learning_engine.infrastructure.llm.provider import LLMResponse
+from learning_engine.services.learning_pipeline import LearningPipeline, MoveApprover
 
 MARKER = "zz_e2e_marker_leasing_flexible_payment_9f3a"
 

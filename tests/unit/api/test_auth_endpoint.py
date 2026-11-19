@@ -6,9 +6,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.endpoints.auth import router as auth_router
-from prosales.api.v1.dependencies import SESSION_COOKIE_NAME
-from prosales.config import settings
+from learning_engine.api.v1.endpoints.auth import router as auth_router
+from learning_engine.api.v1.dependencies import SESSION_COOKIE_NAME
+from learning_engine.config import settings
 
 app = FastAPI()
 app.include_router(auth_router, prefix="/api/v1")

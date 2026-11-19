@@ -1,13 +1,13 @@
 """Tests for QualificationEngine — Cognition infers the conversation outcome."""
 
-from prosales.core.enums import ConversationStage, Intent, Outcome, Sentiment
-from prosales.core.models.analysis import (
+from learning_engine.core.enums import ConversationStage, Intent, Outcome, Sentiment
+from learning_engine.core.models.analysis import (
     AnalysisResult,
     IntentResult,
     SentimentResult,
     StageResult,
 )
-from prosales.engines.qualification.engine import QualificationEngine
+from learning_engine.engines.qualification.engine import QualificationEngine
 
 
 def _analysis(intent, sentiment, stage, ic=0.9, ss=0.6):

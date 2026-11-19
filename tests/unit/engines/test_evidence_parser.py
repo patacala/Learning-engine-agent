@@ -1,7 +1,7 @@
 """Tests for TranscriptParser and EvidenceSource."""
 
-from prosales.engines.evidence.models import EvidenceSource
-from prosales.engines.evidence.parser import TranscriptParser
+from learning_engine.engines.evidence.models import EvidenceSource
+from learning_engine.engines.evidence.parser import TranscriptParser
 
 
 def test_parses_speaker_labels_and_indexes():

@@ -1,11 +1,11 @@
-"""Opt-out gate: once a contact carries the CRM's 'opt-out' tag, ProSales must
+"""Opt-out gate: once a contact carries the CRM's 'opt-out' tag, LearningEngine must
 stop responding entirely — not just avoid re-calling opt_out_contact."""
 
 from uuid import uuid4
 
 import pytest
 
-import prosales.api.v1.endpoints.crm_inbound as ci
+import learning_engine.api.v1.endpoints.crm_inbound as ci
 
 
 class FakeCache:

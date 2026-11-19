@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from prosales.core.models.agent import AgentContext
-from prosales.core.models.identity import AgentIdentity
-from prosales.engines.identity.engine import IdentityEngine
+from learning_engine.core.models.agent import AgentContext
+from learning_engine.core.models.identity import AgentIdentity
+from learning_engine.engines.identity.engine import IdentityEngine
 
 
 def _make_ctx(**kwargs):

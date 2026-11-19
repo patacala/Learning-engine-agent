@@ -1,9 +1,9 @@
 """Provider-neutral LLMMessage (incl. tool_calls / tool-result) maps correctly
 to each provider's wire format. Pure static helpers — no network."""
 
-from prosales.infrastructure.llm.anthropic import AnthropicProvider
-from prosales.infrastructure.llm.openai import OpenAIProvider
-from prosales.infrastructure.llm.provider import LLMMessage, ToolCall
+from learning_engine.infrastructure.llm.anthropic import AnthropicProvider
+from learning_engine.infrastructure.llm.openai import OpenAIProvider
+from learning_engine.infrastructure.llm.provider import LLMMessage, ToolCall
 
 
 def _convo():

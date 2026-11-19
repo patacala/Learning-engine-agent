@@ -3,8 +3,8 @@ parts that need neither a database nor an LLM."""
 
 import pytest
 
-from prosales.engines.knowledge.reranker import LLMReranker, _apply_ranking
-from prosales.infrastructure.vector_store.pgvector import _rrf_fuse
+from learning_engine.engines.knowledge.reranker import LLMReranker, _apply_ranking
+from learning_engine.infrastructure.vector_store.pgvector import _rrf_fuse
 
 
 def test_rrf_rewards_agreement_between_retrievers():

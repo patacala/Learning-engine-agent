@@ -8,10 +8,10 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from prosales.api.v1.endpoints import roleplay as roleplay_ep
-from prosales.api.v1.schemas.roleplay import RoleplayTurnRequest
-from prosales.channels.roleplay.service import RoleplayClosedError, RoleplaySessionNotFound
-from prosales.core.models.agent import AgentContext
+from learning_engine.api.v1.endpoints import roleplay as roleplay_ep
+from learning_engine.api.v1.schemas.roleplay import RoleplayTurnRequest
+from learning_engine.channels.roleplay.service import RoleplayClosedError, RoleplaySessionNotFound
+from learning_engine.core.models.agent import AgentContext
 
 
 def _training_ctx(version_id):

@@ -2,10 +2,10 @@
 
 import pytest
 
-from prosales.engines.dna.models import DNA_FEATURES
-from prosales.engines.dna.profiler import DNAProfiler
-from prosales.engines.evidence.models import EvidenceSource
-from prosales.engines.evidence.parser import TranscriptParser
+from learning_engine.engines.dna.models import DNA_FEATURES
+from learning_engine.engines.dna.profiler import DNAProfiler
+from learning_engine.engines.evidence.models import EvidenceSource
+from learning_engine.engines.evidence.parser import TranscriptParser
 
 TRANSCRIPT = (
     "Cliente: Hola, me interesa el auto.\n"

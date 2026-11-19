@@ -2,13 +2,13 @@
 degrades it. Lists are unioned (template first), scalars are kept from the
 template, rules/strategies union by rule_id/strategy_type."""
 
-from prosales.api.v1.schemas.management import (
+from learning_engine.api.v1.schemas.management import (
     IdentityPayload,
     PersonalityPayload,
     RulePayload,
     StrategyPayload,
 )
-from prosales.services.brief_extractor import (
+from learning_engine.services.brief_extractor import (
     merge_identity,
     merge_personality,
     merge_rules,

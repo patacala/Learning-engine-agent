@@ -2,7 +2,7 @@
 
 import pytest
 
-from prosales.engines.analyzers.contact_signals import ContactSignalDetector
+from learning_engine.engines.analyzers.contact_signals import ContactSignalDetector
 
 
 class _MockLLM:

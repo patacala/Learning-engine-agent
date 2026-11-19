@@ -1,7 +1,7 @@
 """Tests for ContactQualificationEngine — deterministic, accumulating."""
 
-from prosales.core.enums import ConversationStage, Intent, Sentiment, UrgencyLevel
-from prosales.core.models.analysis import (
+from learning_engine.core.enums import ConversationStage, Intent, Sentiment, UrgencyLevel
+from learning_engine.core.models.analysis import (
     AnalysisResult,
     ContactSignalResult,
     IntentResult,
@@ -9,8 +9,8 @@ from prosales.core.models.analysis import (
     StageResult,
     UrgencyResult,
 )
-from prosales.engines.contact_qualification.engine import ContactQualificationEngine
-from prosales.engines.contact_qualification.models import ContactQualification
+from learning_engine.engines.contact_qualification.engine import ContactQualificationEngine
+from learning_engine.engines.contact_qualification.models import ContactQualification
 
 
 def _a(intent, sentiment, stage, signals=None, facts=None, buying=0.0, urgency=UrgencyLevel.LOW):

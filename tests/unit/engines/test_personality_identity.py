@@ -2,9 +2,9 @@
 
 import pytest
 
-from prosales.core.models.analysis import AnalysisResult
-from prosales.core.models.identity import AgentIdentity
-from prosales.engines.personality.engine import PersonalityEngine
+from learning_engine.core.models.analysis import AnalysisResult
+from learning_engine.core.models.identity import AgentIdentity
+from learning_engine.engines.personality.engine import PersonalityEngine
 
 
 @pytest.fixture

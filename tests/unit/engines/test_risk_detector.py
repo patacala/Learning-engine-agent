@@ -1,7 +1,7 @@
 import pytest
 
-from prosales.core.enums import RiskLevel
-from prosales.engines.analyzers.risk import RiskDetector
+from learning_engine.core.enums import RiskLevel
+from learning_engine.engines.analyzers.risk import RiskDetector
 
 
 @pytest.fixture

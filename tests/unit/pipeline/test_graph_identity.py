@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from prosales.pipeline.graph import build_cognitive_graph
+from learning_engine.pipeline.graph import build_cognitive_graph
 
 
 @pytest.fixture

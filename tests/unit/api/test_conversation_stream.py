@@ -11,9 +11,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.endpoints.conversation import router as conversation_router
-from prosales.core.models.agent import AgentContext
-from prosales.services.pipeline_runner import PipelineResult
+from learning_engine.api.v1.endpoints.conversation import router as conversation_router
+from learning_engine.core.models.agent import AgentContext
+from learning_engine.services.pipeline_runner import PipelineResult
 
 app = FastAPI()
 app.include_router(conversation_router, prefix="/api/v1")
@@ -56,13 +56,13 @@ async def test_stream_emits_tokens_then_completed():
         )
 
     with (
-        patch("prosales.api.v1.endpoints.conversation.require_agent_context", AsyncMock(return_value=ctx)),
+        patch("learning_engine.api.v1.endpoints.conversation.require_agent_context", AsyncMock(return_value=ctx)),
         patch(
-            "prosales.api.v1.endpoints.conversation._resolve_client_and_conversation",
+            "learning_engine.api.v1.endpoints.conversation._resolve_client_and_conversation",
             AsyncMock(return_value=(client_id, conversation_id)),
         ),
-        patch("prosales.api.v1.endpoints.conversation.PipelineRunner") as MockRunner,
-        patch("prosales.api.v1.endpoints.conversation.spawn_live_learning") as mock_spawn,
+        patch("learning_engine.api.v1.endpoints.conversation.PipelineRunner") as MockRunner,
+        patch("learning_engine.api.v1.endpoints.conversation.spawn_live_learning") as mock_spawn,
     ):
         MockRunner.return_value.run = fake_run
 
@@ -100,12 +100,12 @@ async def test_stream_emits_error_event_on_pipeline_failure():
         raise RuntimeError("pipeline blew up")
 
     with (
-        patch("prosales.api.v1.endpoints.conversation.require_agent_context", AsyncMock(return_value=ctx)),
+        patch("learning_engine.api.v1.endpoints.conversation.require_agent_context", AsyncMock(return_value=ctx)),
         patch(
-            "prosales.api.v1.endpoints.conversation._resolve_client_and_conversation",
+            "learning_engine.api.v1.endpoints.conversation._resolve_client_and_conversation",
             AsyncMock(return_value=(client_id, conversation_id)),
         ),
-        patch("prosales.api.v1.endpoints.conversation.PipelineRunner") as MockRunner,
+        patch("learning_engine.api.v1.endpoints.conversation.PipelineRunner") as MockRunner,
     ):
         MockRunner.return_value.run = failing_run
 

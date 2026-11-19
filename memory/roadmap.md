@@ -1,8 +1,8 @@
-# ProSales — Roadmap de Desarrollo
+# LearningEngine — Roadmap de Desarrollo
 
 ## Visión
 
-ProSales es un **sistema cognitivo especializado en interacción humana** que:
+LearningEngine es un **sistema cognitivo especializado en interacción humana** que:
 - Piensa antes de hablar (12+ pasos de cognición antes del LLM)
 - Aprende de expertos reales (training module → patrones estructurados)
 - Mejora con cada conversación (episodic memory + feedback loop)
@@ -109,7 +109,7 @@ ProSales es un **sistema cognitivo especializado en interacción humana** que:
 Conectar el flujo real de voz:
 
 ```
-Llamada telefónica → Retell → Webhook → ProSales → Respuesta → Retell → Voz
+Llamada telefónica → Retell → Webhook → LearningEngine → Respuesta → Retell → Voz
 ```
 
 - Webhook endpoint para recibir llamadas
@@ -154,7 +154,7 @@ Cuando el sistema ya vende bien, mejorar naturalidad:
 - **Modelo A (elegido)**: Cognition es un **servidor** que solo responde. Emite las tool-calls como **datos en su respuesta** (`{response, tool_calls: [...]}`); **no hace ninguna llamada saliente**. El **CRM** (que llamó a Cognition y ya es tenant de esa org) **ejecuta** la acción con SU config de calendario/integraciones. Cognition solo lleva `org_id` (del api_key) + intención abstracta; el binding `org_id→URL` vive en el CRM.
 - **Diferenciación por org**: solo por `api_key → org_id` (como ya funciona). Cognition NO guarda URLs por org; hoy ni siquiera existe config per-org (el `crm_webhook_url` es global — a migrar si algún día se necesita Modelo B).
 - **Tool-loop**: si el agente necesita el resultado para seguir (verificar disponibilidad → confirmar), el CRM maneja el ida-y-vuelta (ejecuta y devuelve el resultado en el siguiente turno). Cognition solo va contestando.
-- **Modelo B** (adaptador de tools en el borde de ProSales que ejecuta inline, leyendo `organization_integrations[org_id, tool]`) queda **solo** para tools que requieran ejecución en tiempo real dentro de una llamada de voz (sin poder pagar el round-trip). El motor cognitivo sigue sin ver la URL.
+- **Modelo B** (adaptador de tools en el borde de LearningEngine que ejecuta inline, leyendo `organization_integrations[org_id, tool]`) queda **solo** para tools que requieran ejecución en tiempo real dentro de una llamada de voz (sin poder pagar el round-trip). El motor cognitivo sigue sin ver la URL.
 
 **Sinergia con el aprendizaje**: una acción real exitosa (agendamiento confirmado por la tool) es **señal de outcome ground-truth** — mucho mejor que inferir `scheduled` del texto. Las tools no solo hacen al agente más capaz; mejoran la calidad de la calificación/scoring.
 
@@ -188,7 +188,7 @@ Desde Sprint 1 está embebido. Cada decisión guarda el "por qué":
 }
 ```
 
-Esto convierte a ProSales en un sistema **explicable**:
+Esto convierte a LearningEngine en un sistema **explicable**:
 - Depurar comportamiento
 - Mejorar estrategias con datos
 - Ganarse confianza de clientes empresariales
@@ -197,7 +197,7 @@ Esto convierte a ProSales en un sistema **explicable**:
 
 ## Nota sobre Organizations
 
-El CRM es dueño de las organizaciones/tenants. ProSales usa `organization_id` solo para:
+El CRM es dueño de las organizaciones/tenants. LearningEngine usa `organization_id` solo para:
 - Aislar knowledge store por tenant
 - Asignar el agent correcto (API key → org → agent)
 - Scoping de episodic memory

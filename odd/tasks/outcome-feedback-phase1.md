@@ -1,19 +1,19 @@
-# Feature: outcome-feedback-phase1 (verified CRM outcome → ProSales learning)
+# Feature: outcome-feedback-phase1 (verified CRM outcome → LearningEngine learning)
 
 ## Objective
 Close the learning loop for the TIGHT, unambiguous signal first: when a payment
-succeeds in the CRM, push the verified outcome to ProSales so the learning
+succeeds in the CRM, push the verified outcome to LearningEngine so the learning
 engine re-scores the conversation's moves with real ground truth (instead of
 only Cognition's inferred outcome). Phase 2 (deal-won, appointment-confirmed
 without payment) is out of scope.
 
 ## Background (verified in code)
-- ProSales already has the machinery (`episode.py:_propagate_outcome_to_clusters`,
+- LearningEngine already has the machinery (`episode.py:_propagate_outcome_to_clusters`,
   `services/live_learning.py:run_live_learning`) but the CRM NEVER calls any
   outcome/episode endpoint — the loop is disconnected.
 - Auth wrinkle: the episode endpoint (`/conversation/{id}/episode`) uses
   `verify_internal_or_api_key` (reads `x-api-key`/`x-internal-token`), but the
-  CRM's `prosales-client.request()` sends `Authorization: Bearer`. So the CRM
+  CRM's `learning_engine-client.request()` sends `Authorization: Bearer`. So the CRM
   can't reach the episode endpoint as-is. The CRM's Bearer DOES work against
   `/management` (`get_authenticated_org`). → Expose the outcome under /management.
 - `update_episode_feedback` 404s when no Episode row exists; CRM conversations
@@ -27,7 +27,7 @@ without payment) is out of scope.
 
 ## Design
 
-### ProSales — new endpoint under /management
+### LearningEngine — new endpoint under /management
 `POST /api/v1/management/conversations/{conversation_id}/outcome`
 - Auth: `get_authenticated_org` (Bearer), like the rest of /management.
 - Body schema (schemas/management.py): `OutcomeUpdateRequest { outcome: str, outcome_notes: str = "" }`.
@@ -49,13 +49,13 @@ without payment) is out of scope.
 - Return 200 with a small JSON (e.g. {status, outcome}).
 
 ### CRM — push on payment completed
-- `prosales-client.service.ts`: add
+- `learning_engine-client.service.ts`: add
   `reportOutcome(orgId, conversationId, outcome, notes?)` →
   `request(orgId, 'POST', /api/v1/management/conversations/${conversationId}/outcome,
    { outcome, outcome_notes: notes ?? '' })`. Non-fatal on error (log + swallow in caller).
 - `notifications/payment-event.consumer.ts` `handlePaymentCompleted`: after the
   analytics track, if `data.conversation_id`, call
-  `this.prosales.reportOutcome(data.organization_id, data.conversation_id,
+  `this.learning_engine.reportOutcome(data.organization_id, data.conversation_id,
    data.appointment_confirmed ? 'scheduled' : 'converted')` inside try/catch
   (payment success already carries conversation_id + appointment_confirmed).
 - `notifications/notifications.module.ts`: import `AiAgentsModule` (which exports
@@ -74,7 +74,7 @@ The move-approval model: moves stay `pending`; this only re-scores clusters
 (Knowledge Areas success_rate). Auto-approving moves into the RAG/"Approved"
 pool is a separate, later decision.
 
-## Test-first (ProSales pytest)
+## Test-first (LearningEngine pytest)
 `tests/unit/api/test_management_outcome.py` (new), mocking `run_live_learning`
 and `_propagate_outcome_to_clusters`:
 - outcome set on the conversation; 200.
@@ -84,11 +84,11 @@ and `_propagate_outcome_to_clusters`:
 - missing conversation → 404.
 
 ## Tasks
-- [x] T1 (ProSales) OutcomeUpdateRequest schema — schemas/management.py
-- [x] T2 (ProSales) POST /management/conversations/{id}/outcome endpoint — management.py
-- [x] T3 (CRM) reportOutcome in prosales-client.service.ts
+- [x] T1 (LearningEngine) OutcomeUpdateRequest schema — schemas/management.py
+- [x] T2 (LearningEngine) POST /management/conversations/{id}/outcome endpoint — management.py
+- [x] T3 (CRM) reportOutcome in learning_engine-client.service.ts
 - [x] T4 (CRM) call it from payment-event.consumer.ts + wire AIAgentsModule in notifications.module.ts
-- [x] T5 Tests (ProSales pytest RED→GREEN) + CRM tsc
+- [x] T5 Tests (LearningEngine pytest RED→GREEN) + CRM tsc
 - [x] T6 Verify suite green; lint; tsc clean
 
 ## Route
@@ -109,7 +109,7 @@ missing the endpoint, then passed after implementation).
   `_propagate_outcome_to_clusters`. Best-effort episode-feedback mirror wrapped in
   try/except (never 404s if no Episode). `_propagate_outcome_to_clusters` imported
   from `endpoints.episode` (episode.py untouched). New module `logger`.
-- **T3** CRM `prosales-client.service.ts`: added `reportOutcome(orgId, conversationId, outcome, notes?)`
+- **T3** CRM `learning_engine-client.service.ts`: added `reportOutcome(orgId, conversationId, outcome, notes?)`
   → `request(orgId, 'POST', /api/v1/management/conversations/${id}/outcome, { outcome, outcome_notes })`.
 - **T4** CRM `payment-event.consumer.ts`: injected `ProsalesClientService`; after the
   analytics track in `handlePaymentCompleted`, when `conversation_id` present, calls
@@ -120,7 +120,7 @@ missing the endpoint, then passed after implementation).
 
 ### Verification (observed)
 - `pytest tests/unit/api/test_management_outcome.py tests/unit/api/test_management_api.py -q`: **30 passed** (5 new + 25 existing).
-- `ruff check src/prosales/api/v1/endpoints/management.py src/prosales/api/v1/schemas/management.py`: 23 errors, **all pre-existing** (per-file counts unchanged vs HEAD: management.py 22, schemas 1 — E501/I001/UP017 legacy debt). **Zero new.**
+- `ruff check src/learning_engine/api/v1/endpoints/management.py src/learning_engine/api/v1/schemas/management.py`: 23 errors, **all pre-existing** (per-file counts unchanged vs HEAD: management.py 22, schemas 1 — E501/I001/UP017 legacy debt). **Zero new.**
 - CRM `npx tsc -p apps/api/tsconfig.json --noEmit`: **exit 0, clean.**
 
 Not done (out of scope / human-owned): no commit/push; no DB migration (additive, none needed);

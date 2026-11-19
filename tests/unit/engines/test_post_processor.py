@@ -1,6 +1,6 @@
 import pytest
 
-from prosales.engines.response.post_processor import PostProcessor
+from learning_engine.engines.response.post_processor import PostProcessor
 
 
 @pytest.fixture

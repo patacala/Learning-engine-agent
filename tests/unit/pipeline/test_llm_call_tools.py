@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-from prosales.core.models.execution import PipelineExecution, Versions
-from prosales.infrastructure.llm.provider import LLMMessage, LLMToolResponse, ToolCall
-from prosales.pipeline.nodes import MAX_TOOL_ITERATIONS, create_llm_call_node
+from learning_engine.core.models.execution import PipelineExecution, Versions
+from learning_engine.infrastructure.llm.provider import LLMMessage, LLMToolResponse, ToolCall
+from learning_engine.pipeline.nodes import MAX_TOOL_ITERATIONS, create_llm_call_node
 
 
 class ScriptedToolLLM:

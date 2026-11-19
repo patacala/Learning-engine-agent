@@ -9,4 +9,4 @@ echo "[entrypoint] Running database migrations (alembic upgrade head)..."
 alembic upgrade head
 
 echo "[entrypoint] Starting uvicorn with ${WEB_WORKERS:-4} worker(s)..."
-exec uvicorn prosales.main:app --host 0.0.0.0 --port 8000 --workers "${WEB_WORKERS:-4}"
+exec uvicorn learning_engine.main:app --host 0.0.0.0 --port 8000 --workers "${WEB_WORKERS:-4}"

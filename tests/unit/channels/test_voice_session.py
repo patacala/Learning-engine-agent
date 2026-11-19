@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from prosales.channels.voice.session import VoiceSession, VoiceSessionManager
+from learning_engine.channels.voice.session import VoiceSession, VoiceSessionManager
 
 
 class FakeRedisCache:

@@ -1,10 +1,10 @@
-"""Inbound voice: ProSales asks the CRM which org owns the Retell agent that
-answered (ProSales stores no agent/number->org mapping nor any credential)."""
+"""Inbound voice: LearningEngine asks the CRM which org owns the Retell agent that
+answered (LearningEngine stores no agent/number->org mapping nor any credential)."""
 
 import httpx
 import pytest
 
-from prosales.channels.voice import crm_resolver
+from learning_engine.channels.voice import crm_resolver
 
 
 @pytest.mark.asyncio

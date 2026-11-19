@@ -1,8 +1,8 @@
 import pytest
 
-from prosales.core.enums import ConversationPath, Intent
-from prosales.core.models.analysis import AnalysisResult, IntentResult
-from prosales.engines.conversation_manager.engine import ConversationManager
+from learning_engine.core.enums import ConversationPath, Intent
+from learning_engine.core.models.analysis import AnalysisResult, IntentResult
+from learning_engine.engines.conversation_manager.engine import ConversationManager
 
 
 @pytest.fixture

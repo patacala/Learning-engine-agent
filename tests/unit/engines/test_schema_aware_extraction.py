@@ -2,8 +2,8 @@
 qualification fields (so each industry captures its own), falling back to a
 generic example when there's no schema."""
 
-from prosales.core.models.qualification_schema import QualificationField, QualificationSchema
-from prosales.engines.analyzers.contact_signals import build_facts_instruction
+from learning_engine.core.models.qualification_schema import QualificationField, QualificationSchema
+from learning_engine.engines.analyzers.contact_signals import build_facts_instruction
 
 
 def test_no_schema_uses_default_example():

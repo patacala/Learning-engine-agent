@@ -1,6 +1,6 @@
 """Tests for AgentIdentity DTO."""
 
-from prosales.core.models.identity import AgentIdentity
+from learning_engine.core.models.identity import AgentIdentity
 
 
 class TestAgentIdentityDefaults:

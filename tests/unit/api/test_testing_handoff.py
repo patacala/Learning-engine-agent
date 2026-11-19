@@ -7,8 +7,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.dependencies import get_db_session, verify_internal_token
-from prosales.api.v1.endpoints.testing import router
+from learning_engine.api.v1.dependencies import get_db_session, verify_internal_token
+from learning_engine.api.v1.endpoints.testing import router
 
 
 app = FastAPI()

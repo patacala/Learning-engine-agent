@@ -1,7 +1,7 @@
 """Picking the Retell 'from' number for an outbound call when the CRM only
 stored the agent id (the phone lives on the agent in Retell)."""
 
-from prosales.channels.voice.outbound import from_number_for_agent
+from learning_engine.channels.voice.outbound import from_number_for_agent
 
 
 def test_prefers_outbound_agent_binding():

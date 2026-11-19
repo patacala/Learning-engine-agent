@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import text  # noqa: E402
 
-from prosales.infrastructure.database.connection import async_session_factory  # noqa: E402
+from learning_engine.infrastructure.database.connection import async_session_factory  # noqa: E402
 
 
 def _pct(values: list[float], p: float) -> float:

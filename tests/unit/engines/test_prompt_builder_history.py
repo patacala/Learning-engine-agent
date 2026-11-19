@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 def _msg(role, content):

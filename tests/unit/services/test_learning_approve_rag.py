@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.services.learning_pipeline import MoveApprover
+from learning_engine.services.learning_pipeline import MoveApprover
 
 
 def _model(polarity: str):
@@ -33,9 +33,9 @@ def _approver():
 async def test_positive_move_indexed_to_rag():
     approver, _ = _approver()
     with (
-        patch("prosales.engines.knowledge.indexer.index_document", new=AsyncMock()) as idx,
+        patch("learning_engine.engines.knowledge.indexer.index_document", new=AsyncMock()) as idx,
         patch(
-            "prosales.infrastructure.database.repositories.learning_session.SQLLearningSessionRepository.increment_approved",
+            "learning_engine.infrastructure.database.repositories.learning_session.SQLLearningSessionRepository.increment_approved",
             new=AsyncMock(),
         ) as inc,
     ):
@@ -49,9 +49,9 @@ async def test_positive_move_indexed_to_rag():
 async def test_anti_pattern_not_indexed_to_rag():
     approver, _ = _approver()
     with (
-        patch("prosales.engines.knowledge.indexer.index_document", new=AsyncMock()) as idx,
+        patch("learning_engine.engines.knowledge.indexer.index_document", new=AsyncMock()) as idx,
         patch(
-            "prosales.infrastructure.database.repositories.learning_session.SQLLearningSessionRepository.increment_approved",
+            "learning_engine.infrastructure.database.repositories.learning_session.SQLLearningSessionRepository.increment_approved",
             new=AsyncMock(),
         ),
     ):
@@ -76,9 +76,9 @@ async def test_approve_passes_sibling_kinds_to_clusterer():
     approver.clusterer.assign = AsyncMock(return_value=uuid4())
 
     with (
-        patch("prosales.engines.knowledge.indexer.index_document", new=AsyncMock()),
+        patch("learning_engine.engines.knowledge.indexer.index_document", new=AsyncMock()),
         patch(
-            "prosales.infrastructure.database.repositories.learning_session.SQLLearningSessionRepository.increment_approved",
+            "learning_engine.infrastructure.database.repositories.learning_session.SQLLearningSessionRepository.increment_approved",
             new=AsyncMock(),
         ),
     ):

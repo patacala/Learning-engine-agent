@@ -1,7 +1,7 @@
 import pytest
 
-from prosales.core.enums import Language
-from prosales.engines.analyzers.language import LanguageDetector
+from learning_engine.core.enums import Language
+from learning_engine.engines.analyzers.language import LanguageDetector
 
 
 @pytest.fixture

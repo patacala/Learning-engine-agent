@@ -35,16 +35,16 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(mes
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from prosales.api.v1.dependencies import get_redis_cache  # noqa: E402
-from prosales.di.container import create_llm_provider  # noqa: E402
-from prosales.infrastructure.database.connection import async_session_factory  # noqa: E402
-from prosales.infrastructure.database.models import ConversationModel  # noqa: E402
-from prosales.infrastructure.database.repositories.client import SQLClientRepository  # noqa: E402
-from prosales.infrastructure.database.repositories.conversation import (  # noqa: E402
+from learning_engine.api.v1.dependencies import get_redis_cache  # noqa: E402
+from learning_engine.di.container import create_llm_provider  # noqa: E402
+from learning_engine.infrastructure.database.connection import async_session_factory  # noqa: E402
+from learning_engine.infrastructure.database.models import ConversationModel  # noqa: E402
+from learning_engine.infrastructure.database.repositories.client import SQLClientRepository  # noqa: E402
+from learning_engine.infrastructure.database.repositories.conversation import (  # noqa: E402
     SQLConversationRepository,
 )
-from prosales.infrastructure.llm.provider import LLMMessage  # noqa: E402
-from prosales.services.pipeline_runner import PipelineRunner  # noqa: E402
+from learning_engine.infrastructure.llm.provider import LLMMessage  # noqa: E402
+from learning_engine.services.pipeline_runner import PipelineRunner  # noqa: E402
 
 # Reuse eval_conversation's AgentContext loader — same convention (no invented
 # organization_id), one definition instead of two drifting copies.

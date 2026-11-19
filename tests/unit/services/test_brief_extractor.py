@@ -4,7 +4,7 @@ intent trigger, tactics without an instruction)."""
 
 import pytest
 
-from prosales.services.brief_extractor import BriefExtractor
+from learning_engine.services.brief_extractor import BriefExtractor
 
 
 class FakeLLM:

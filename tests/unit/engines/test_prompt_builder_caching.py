@@ -7,14 +7,14 @@ byte-identical regardless of emotion; only context_msg may vary with it."""
 
 import pytest
 
-from prosales.core.enums import Sentiment
-from prosales.core.models.analysis import AnalysisResult, SentimentResult
-from prosales.core.models.personality import PersonalityLayer, PersonalityProfile
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.core.enums import Sentiment
+from learning_engine.core.models.analysis import AnalysisResult, SentimentResult
+from learning_engine.core.models.personality import PersonalityLayer, PersonalityProfile
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 def _profile_for(sentiment: Sentiment) -> PersonalityProfile:
-    from prosales.engines.personality.layers import get_emotion_layer
+    from learning_engine.engines.personality.layers import get_emotion_layer
 
     return PersonalityProfile(
         brand=PersonalityLayer(tone="Cálido", instructions=["Sé cálido y cercano"]),

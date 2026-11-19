@@ -2,8 +2,8 @@
 
 import pytest
 
-from prosales.channels.voice.providers.base import VoiceChunk
-from prosales.channels.voice.providers.retell import RetellProvider
+from learning_engine.channels.voice.providers.base import VoiceChunk
+from learning_engine.channels.voice.providers.retell import RetellProvider
 
 
 @pytest.fixture

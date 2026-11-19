@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.dependencies import verify_internal_or_api_key
-from prosales.api.v1.endpoints.episode import router
+from learning_engine.api.v1.dependencies import verify_internal_or_api_key
+from learning_engine.api.v1.endpoints.episode import router
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v1")
@@ -73,13 +73,13 @@ class TestCloseEndpoint:
         conv = _mock_conversation(conversation_id=conv_id)
 
         with (
-            patch("prosales.api.v1.endpoints.episode.get_db_session") as mock_deps,
-            patch("prosales.api.v1.endpoints.episode.SQLConversationRepository") as MockConvRepo,
-            patch("prosales.api.v1.endpoints.episode.SQLEventRepository") as MockEventRepo,
-            patch("prosales.api.v1.endpoints.episode.SQLEpisodicRepository") as MockEpRepo,
-            patch("prosales.api.v1.endpoints.episode.EpisodeExtractor") as MockExtractor,
-            patch("prosales.api.v1.endpoints.episode.EpisodicMemoryEngine") as MockEngine,
-            patch("prosales.api.v1.endpoints.episode.EventStore") as MockEventStore,
+            patch("learning_engine.api.v1.endpoints.episode.get_db_session") as mock_deps,
+            patch("learning_engine.api.v1.endpoints.episode.SQLConversationRepository") as MockConvRepo,
+            patch("learning_engine.api.v1.endpoints.episode.SQLEventRepository") as MockEventRepo,
+            patch("learning_engine.api.v1.endpoints.episode.SQLEpisodicRepository") as MockEpRepo,
+            patch("learning_engine.api.v1.endpoints.episode.EpisodeExtractor") as MockExtractor,
+            patch("learning_engine.api.v1.endpoints.episode.EpisodicMemoryEngine") as MockEngine,
+            patch("learning_engine.api.v1.endpoints.episode.EventStore") as MockEventStore,
         ):
             session = _mock_session()
             mock_deps.return_value = session
@@ -87,7 +87,7 @@ class TestCloseEndpoint:
             MockConvRepo.return_value.get_by_id = AsyncMock(return_value=conv)
             MockEpRepo.return_value.get_by_conversation = AsyncMock(return_value=None)
 
-            from prosales.engines.episodic.models import Episode
+            from learning_engine.engines.episodic.models import Episode
             episode = Episode(
                 conversation_id=conv_id,
                 client_id=conv.client_id,
@@ -102,7 +102,7 @@ class TestCloseEndpoint:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 # Override the dependency
-                from prosales.api.v1.dependencies import get_db_session
+                from learning_engine.api.v1.dependencies import get_db_session
                 app.dependency_overrides[get_db_session] = lambda: session
 
                 response = await client.post(f"/api/v1/conversation/{conv_id}/close")
@@ -122,12 +122,12 @@ class TestFeedbackEndpoint:
         model = _mock_episode_model(conversation_id=conv_id)
 
         with (
-            patch("prosales.api.v1.endpoints.episode.SQLEpisodicRepository") as MockEpRepo,
+            patch("learning_engine.api.v1.endpoints.episode.SQLEpisodicRepository") as MockEpRepo,
         ):
             MockEpRepo.return_value.update_feedback = AsyncMock(return_value=model)
 
             session = _mock_session()
-            from prosales.api.v1.dependencies import get_db_session
+            from learning_engine.api.v1.dependencies import get_db_session
             app.dependency_overrides[get_db_session] = lambda: session
 
             transport = ASGITransport(app=app)
@@ -148,12 +148,12 @@ class TestFeedbackEndpoint:
         conv_id = uuid4()
 
         with (
-            patch("prosales.api.v1.endpoints.episode.SQLEpisodicRepository") as MockEpRepo,
+            patch("learning_engine.api.v1.endpoints.episode.SQLEpisodicRepository") as MockEpRepo,
         ):
             MockEpRepo.return_value.update_feedback = AsyncMock(return_value=None)
 
             session = _mock_session()
-            from prosales.api.v1.dependencies import get_db_session
+            from learning_engine.api.v1.dependencies import get_db_session
             app.dependency_overrides[get_db_session] = lambda: session
 
             transport = ASGITransport(app=app)

@@ -4,7 +4,7 @@ the customer said — so it acknowledges it and continues."""
 
 import pytest
 
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 def test_system_event_dict_renders_instruction_and_message():

@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.expressions.models import Expression
-from prosales.engines.knowledge.pattern_retriever import LearningContext, PatternRetriever
+from learning_engine.engines.expressions.models import Expression
+from learning_engine.engines.knowledge.pattern_retriever import LearningContext, PatternRetriever
 
 AGENT = uuid4()
 

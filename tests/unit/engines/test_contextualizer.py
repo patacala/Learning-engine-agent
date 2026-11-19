@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from prosales.engines.knowledge.chunker import chunk_document
-from prosales.engines.knowledge.contextualizer import contextualize_chunks
-from prosales.infrastructure.llm.provider import LLMMessage, LLMResponse
+from learning_engine.engines.knowledge.chunker import chunk_document
+from learning_engine.engines.knowledge.contextualizer import contextualize_chunks
+from learning_engine.infrastructure.llm.provider import LLMMessage, LLMResponse
 
 
 @pytest.mark.asyncio

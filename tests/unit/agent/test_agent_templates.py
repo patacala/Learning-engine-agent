@@ -1,7 +1,7 @@
 """Agent templates: the selectable types each define a distinct role, and the
 legacy 'support' type aliases customer_service for backward compatibility."""
 
-from prosales.infrastructure.agent.templates import (
+from learning_engine.infrastructure.agent.templates import (
     AGENT_TEMPLATES,
     SELECTABLE_AGENT_TYPES,
 )

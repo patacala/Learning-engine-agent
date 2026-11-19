@@ -2,8 +2,8 @@
 bant_dimension) feed BANT, with a per-dimension fallback to the legacy hardcoded
 keys when no schema/field is set."""
 
-from prosales.core.enums import ConversationStage, Intent, Sentiment, UrgencyLevel
-from prosales.core.models.analysis import (
+from learning_engine.core.enums import ConversationStage, Intent, Sentiment, UrgencyLevel
+from learning_engine.core.models.analysis import (
     AnalysisResult,
     ContactSignalResult,
     IntentResult,
@@ -11,13 +11,13 @@ from prosales.core.models.analysis import (
     StageResult,
     UrgencyResult,
 )
-from prosales.core.models.qualification_schema import (
+from learning_engine.core.models.qualification_schema import (
     QualificationField,
     QualificationSchema,
     default_schema,
 )
-from prosales.engines.contact_qualification.engine import ContactQualificationEngine
-from prosales.engines.contact_qualification.models import ContactQualification
+from learning_engine.engines.contact_qualification.engine import ContactQualificationEngine
+from learning_engine.engines.contact_qualification.models import ContactQualification
 
 
 def _a(facts=None, signals=None, intent=Intent.INQUIRY, urgency=UrgencyLevel.LOW):

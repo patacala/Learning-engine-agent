@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from prosales.engines.knowledge.indexer import index_document
-from prosales.infrastructure.database.models import KnowledgeChunkModel, KnowledgeDocumentModel
-from prosales.infrastructure.llm.provider import LLMResponse
+from learning_engine.engines.knowledge.indexer import index_document
+from learning_engine.infrastructure.database.models import KnowledgeChunkModel, KnowledgeDocumentModel
+from learning_engine.infrastructure.llm.provider import LLMResponse
 
 
 @pytest.mark.asyncio
@@ -26,14 +26,14 @@ async def test_index_document_creates_one_chunk_row_per_chunk():
 
     with (
         patch(
-            "prosales.engines.knowledge.indexer.contextualize_chunks",
+            "learning_engine.engines.knowledge.indexer.contextualize_chunks",
             AsyncMock(
                 side_effect=lambda llm, title, content, chunks: [f"ctx: {c}" for c in chunks]
             ),
         ),
-        patch("prosales.engines.knowledge.indexer.create_analyzer_llm", return_value=MagicMock()),
+        patch("learning_engine.engines.knowledge.indexer.create_analyzer_llm", return_value=MagicMock()),
         patch(
-            "prosales.engines.knowledge.indexer.PGVectorStore.embed_many",
+            "learning_engine.engines.knowledge.indexer.PGVectorStore.embed_many",
             AsyncMock(return_value=[[0.1] * 1536, [0.1] * 1536]),
         ),
     ):
@@ -72,9 +72,9 @@ async def test_long_document_stores_every_chunk():
         return_value=LLMResponse(content="Contexto del catalogo.", model="test")
     )
     with (
-        patch("prosales.engines.knowledge.indexer.create_analyzer_llm", return_value=llm),
+        patch("learning_engine.engines.knowledge.indexer.create_analyzer_llm", return_value=llm),
         patch(
-            "prosales.engines.knowledge.indexer.PGVectorStore.embed_many",
+            "learning_engine.engines.knowledge.indexer.PGVectorStore.embed_many",
             AsyncMock(side_effect=_embed),
         ),
     ):

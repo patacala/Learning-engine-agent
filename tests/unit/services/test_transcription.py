@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from prosales.services.transcription import AudioTranscriber
+from learning_engine.services.transcription import AudioTranscriber
 
 
 class TestTranscribe:
     @pytest.mark.asyncio
     async def test_transcribes_audio_bytes(self):
-        with patch("prosales.services.transcription.openai.AsyncOpenAI") as MockClient:
+        with patch("learning_engine.services.transcription.openai.AsyncOpenAI") as MockClient:
             mock_response = MagicMock()
             mock_response.text = "Hola, ¿cómo puedo ayudarle?"
 

@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.knowledge.engine import KnowledgeEngine
-from prosales.engines.knowledge.pattern_retriever import PatternRetriever
+from learning_engine.engines.knowledge.engine import KnowledgeEngine
+from learning_engine.engines.knowledge.pattern_retriever import PatternRetriever
 
 AGENT = uuid4()
 
@@ -30,7 +30,7 @@ async def test_knowledge_engine_embeds_once_and_surfaces_it_in_state():
 
     engine = KnowledgeEngine(fake_factory)
 
-    with patch("prosales.engines.knowledge.engine.PGVectorStore") as MockStore:
+    with patch("learning_engine.engines.knowledge.engine.PGVectorStore") as MockStore:
         store = MockStore.return_value
         store.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
         store.search_hybrid = AsyncMock(return_value=[])
@@ -51,7 +51,7 @@ async def test_knowledge_engine_reuses_embedding_already_in_state():
 
     engine = KnowledgeEngine(fake_factory)
 
-    with patch("prosales.engines.knowledge.engine.PGVectorStore") as MockStore:
+    with patch("learning_engine.engines.knowledge.engine.PGVectorStore") as MockStore:
         store = MockStore.return_value
         store.embed = AsyncMock(side_effect=AssertionError("must not re-embed"))
         store.search_hybrid = AsyncMock(return_value=[])
@@ -81,9 +81,9 @@ async def test_pattern_retriever_reuses_precomputed_embedding():
     retriever._embed_message = AsyncMock(side_effect=AssertionError("must not re-embed"))
 
     with (
-        patch("prosales.engines.knowledge.pattern_retriever.SQLPerformanceRepository") as MockPerf,
-        patch("prosales.engines.knowledge.pattern_retriever.SQLExpressionsRepository") as MockExpr,
-        patch("prosales.engines.knowledge.pattern_retriever.SQLInsightsRepository") as MockInsights,
+        patch("learning_engine.engines.knowledge.pattern_retriever.SQLPerformanceRepository") as MockPerf,
+        patch("learning_engine.engines.knowledge.pattern_retriever.SQLExpressionsRepository") as MockExpr,
+        patch("learning_engine.engines.knowledge.pattern_retriever.SQLInsightsRepository") as MockInsights,
     ):
         MockPerf.return_value.list_clusters = AsyncMock(return_value=[])
         MockExpr.return_value.list_by_agent = AsyncMock(return_value=[])
@@ -110,9 +110,9 @@ async def test_pattern_retriever_embeds_when_none_given():
     retriever._embed_message = AsyncMock(return_value=[0.4, 0.5, 0.6])
 
     with (
-        patch("prosales.engines.knowledge.pattern_retriever.SQLPerformanceRepository") as MockPerf,
-        patch("prosales.engines.knowledge.pattern_retriever.SQLExpressionsRepository") as MockExpr,
-        patch("prosales.engines.knowledge.pattern_retriever.SQLInsightsRepository") as MockInsights,
+        patch("learning_engine.engines.knowledge.pattern_retriever.SQLPerformanceRepository") as MockPerf,
+        patch("learning_engine.engines.knowledge.pattern_retriever.SQLExpressionsRepository") as MockExpr,
+        patch("learning_engine.engines.knowledge.pattern_retriever.SQLInsightsRepository") as MockInsights,
     ):
         MockPerf.return_value.list_clusters = AsyncMock(return_value=[])
         MockExpr.return_value.list_by_agent = AsyncMock(return_value=[])

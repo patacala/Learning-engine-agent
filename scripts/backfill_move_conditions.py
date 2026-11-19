@@ -32,10 +32,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
 
-from prosales.engines.performance.clusterer import _merge_conditions
-from prosales.infrastructure.database.connection import async_session_factory
-from prosales.infrastructure.database.models_moves import ConversationMoveModel
-from prosales.infrastructure.database.models_performance import PatternClusterModel
+from learning_engine.engines.performance.clusterer import _merge_conditions
+from learning_engine.infrastructure.database.connection import async_session_factory
+from learning_engine.infrastructure.database.models_moves import ConversationMoveModel
+from learning_engine.infrastructure.database.models_performance import PatternClusterModel
 
 
 def _has_works_when(conditions: dict | None) -> bool:

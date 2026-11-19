@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from prosales.core.models.execution import PipelineExecution, Versions
-from prosales.infrastructure.llm.provider import LLMMessage, LLMResponse
-from prosales.pipeline.nodes import create_llm_call_node
+from learning_engine.core.models.execution import PipelineExecution, Versions
+from learning_engine.infrastructure.llm.provider import LLMMessage, LLMResponse
+from learning_engine.pipeline.nodes import create_llm_call_node
 
 
 class FakeLLM:

@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from prosales.core.models.agent import AgentContext
+from learning_engine.core.models.agent import AgentContext
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
-from prosales.core.enums import ConversationStage, Intent, StrategyType
-from prosales.core.models.analysis import AnalysisResult, IntentResult, StageResult
-from prosales.engines.strategy.selector import select_strategy
+from learning_engine.core.enums import ConversationStage, Intent, StrategyType
+from learning_engine.core.models.analysis import AnalysisResult, IntentResult, StageResult
+from learning_engine.engines.strategy.selector import select_strategy
 
 
 def test_consultive_for_inquiry():

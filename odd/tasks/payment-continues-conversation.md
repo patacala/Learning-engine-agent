@@ -9,11 +9,11 @@ instead of going silent.
 The CRM already fires a `payment.received` trigger after
 `checkout.session.completed` (payments.service.ts:290-334) carrying
 `conversation_id` and a system confirmation `message`. But it never reaches
-the ProSales conversational agent, for three reasons:
+the LearningEngine conversational agent, for three reasons:
 
 1. **Routing** — `AgentTriggerProcessor.process` resolves targets via
    `findAgentsForEvent(org, event_type)` and agents match a single exact
-   `trigger_event` (agent-trigger.service.ts:20-24). The ProSales agent is
+   `trigger_event` (agent-trigger.service.ts:20-24). The LearningEngine agent is
    registered for `message.received`, so `payment.received` matches zero agents
    unless a second agent row is configured. → event dies in the worker.
 2. **Schema** — even if delivered, `CRMInboundPayload` requires both `message`
@@ -34,11 +34,11 @@ config row).
   {'payment.received','payment.expired'}`. In `process`, if
   `findAgentsForEvent(org, event_type)` is empty AND `event_type ∈
   PAYMENT_EVENTS`, retry with `'message.received'`. The POST still sends the
-  original `event_type` so ProSales branches correctly. Explicit payment-agent
+  original `event_type` so LearningEngine branches correctly. Explicit payment-agent
   config still wins (only fall back when empty).
-- **ProSales schema** `schemas/crm_inbound.py`: `CRMInboundPayload.channel:
+- **LearningEngine schema** `schemas/crm_inbound.py`: `CRMInboundPayload.channel:
   str | None = None` (payment payload has no channel).
-- **ProSales endpoint** `crm_inbound.py`:
+- **LearningEngine endpoint** `crm_inbound.py`:
   - Treat `body.event_type != "message.received"` as a **system event**.
   - System event path: run immediately (NO debounce), call
     `_run_pipeline_and_reply(..., store_user_message=False)` with
@@ -49,7 +49,7 @@ config row).
   - `current_message` = `payload.message` (so analyzers/response have content;
     not persisted because store_user_message=False).
   - Build `extra_context` with `payload.channel or "system"`.
-- **ProSales prompt** `prompt_builder.py` `_format_external_context`: render
+- **LearningEngine prompt** `prompt_builder.py` `_format_external_context`: render
   `extra["system_event"]` FIRST as a prominent system instruction, e.g.:
   `SYSTEM EVENT (confirmed fact, the customer did NOT say this — acknowledge it
   and continue naturally):\n<message>`.
@@ -60,7 +60,7 @@ config row).
   continue (out of scope).
 - `payment.expired` is handled by the same system-event path for free if routed.
 
-## Test-first policy (ProSales has pytest; RED→GREEN)
+## Test-first policy (LearningEngine has pytest; RED→GREEN)
 - `tests/unit/api/test_crm_inbound*.py` (new or existing): a `payment.received`
   inbound runs the pipeline with `store_user_message=False`, bypasses debounce,
   injects `extra_context["system_event"]`, and calls `_send_reply_to_crm`.
@@ -72,11 +72,11 @@ config row).
 
 ## Tasks
 - [x] T1 (CRM) processor payment→message.received fallback — agent-trigger.processor.ts
-- [x] T2 (ProSales) channel optional — schemas/crm_inbound.py
-- [x] T3 (ProSales) event_type branching + store_user_message param + system_event injection — crm_inbound.py
-- [x] T4 (ProSales) prompt_builder renders system_event — prompt_builder.py
-- [x] T5 Tests (ProSales pytest; CRM verified via tsc — no Jest harness) + run suite
-- [x] T6 Verify: ProSales crm_inbound+prompt tests green; lint (no new errors); CRM tsc clean
+- [x] T2 (LearningEngine) channel optional — schemas/crm_inbound.py
+- [x] T3 (LearningEngine) event_type branching + store_user_message param + system_event injection — crm_inbound.py
+- [x] T4 (LearningEngine) prompt_builder renders system_event — prompt_builder.py
+- [x] T5 Tests (LearningEngine pytest; CRM verified via tsc — no Jest harness) + run suite
+- [x] T6 Verify: LearningEngine crm_inbound+prompt tests green; lint (no new errors); CRM tsc clean
 
 ## Route
 Delegated-direct: one bounded writer (4 non-trivial files + tests across 2 repos).
@@ -91,8 +91,8 @@ Implemented 2026-10-05 (delegated-direct writer).
   The POST still sends the original `event_type` (n8nPayload uses the
   destructured `event_type`, untouched). Existing "No active agents"
   early-return kept after the fallback.
-- **T2 ProSales** `schemas/crm_inbound.py`: `CRMInboundPayload.channel: str | None = None`.
-- **T3 ProSales** `endpoints/crm_inbound.py`: `_run_pipeline_and_reply` gained
+- **T2 LearningEngine** `schemas/crm_inbound.py`: `CRMInboundPayload.channel: str | None = None`.
+- **T3 LearningEngine** `endpoints/crm_inbound.py`: `_run_pipeline_and_reply` gained
   `store_user_message: bool = True`, passed through to `runner.run(...)`
   (was hardcoded True). `extra_context["channel"] = body.payload.channel or "system"`.
   New system-event branch in `crm_inbound` (any `event_type != "message.received"`):
@@ -101,7 +101,7 @@ Implemented 2026-10-05 (delegated-direct writer).
   `current_message = body.payload.message` via `background_tasks.add_task`
   (same fast-ACK 202). The `message.received` path (debounce/immediate) is
   byte-for-byte unchanged. Opt-out short-circuit untouched.
-- **T4 ProSales** `prompt_builder.py` `_format_external_context`: renders
+- **T4 LearningEngine** `prompt_builder.py` `_format_external_context`: renders
   `extra["system_event"]` FIRST (before Contact/appointments) as
   `SYSTEM EVENT (confirmed fact — the customer did NOT say this; acknowledge
   it and continue naturally):\n<message>`. Tolerates dict `{type,message}` or

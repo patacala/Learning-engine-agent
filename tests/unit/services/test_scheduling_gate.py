@@ -6,7 +6,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from prosales.services.crm_tools import CRMToolExecutor
+from learning_engine.services.crm_tools import CRMToolExecutor
 
 
 def _executor(required, known=None):

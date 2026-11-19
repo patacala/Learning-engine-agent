@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.memory.engine import MemoryEngine
+from learning_engine.engines.memory.engine import MemoryEngine
 
 
 def _make_episodic_model(
@@ -37,7 +37,7 @@ async def _run(conversation_repo, client_repo, episodic_repo, use_episodic):
     """Run MemoryEngine.process with the repo classes patched to return the
     injected mocks (the engine builds them from its short session internally)."""
     engine = MemoryEngine(_factory(), use_episodic=use_episodic)
-    mod = "prosales.engines.memory.engine"
+    mod = "learning_engine.engines.memory.engine"
     with patch(f"{mod}.SQLConversationRepository", return_value=conversation_repo), \
          patch(f"{mod}.SQLClientRepository", return_value=client_repo), \
          patch(f"{mod}.SQLEpisodicRepository", return_value=episodic_repo):

@@ -1,6 +1,6 @@
 """Seed strategies — idempotent CLI wrapper to populate agent_strategies from
 the expanded catalog. The actual logic lives in
-prosales.infrastructure.agent.strategy_seed (shared with the provisioning
+learning_engine.infrastructure.agent.strategy_seed (shared with the provisioning
 bootstrap endpoint), so it isn't duplicated here.
 
 Usage:
@@ -17,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from prosales.config import settings
-from prosales.infrastructure.agent.strategy_seed import seed_strategies
+from learning_engine.config import settings
+from learning_engine.infrastructure.agent.strategy_seed import seed_strategies
 
 
 async def main():

@@ -13,7 +13,7 @@ seed:
 	python scripts/seed_knowledge.py
 
 run:
-	uvicorn prosales.main:app --reload --host 0.0.0.0 --port 8000
+	uvicorn learning_engine.main:app --reload --host 0.0.0.0 --port 8000
 
 test:
 	pytest -v

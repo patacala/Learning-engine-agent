@@ -1,7 +1,7 @@
 """Seed learned knowledge for the "sales pro" agent from the Aura (Audi Miami South) prompt.
 
 One-off, idempotent seed. Converts the objection-handling database and a few soft
-conversational guidelines from that prompt into ProSales' LEARNED layer (not
+conversational guidelines from that prompt into LearningEngine' LEARNED layer (not
 static prompt text):
 
 - ``behavior_rules`` (published insights) — generalized directives the LLM applies
@@ -36,17 +36,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from prosales.config import settings
-from prosales.engines.insights.models import Insight
-from prosales.engines.moves.states import ClientState
-from prosales.infrastructure.database.models_agent import (
+from learning_engine.config import settings
+from learning_engine.engines.insights.models import Insight
+from learning_engine.engines.moves.states import ClientState
+from learning_engine.infrastructure.database.models_agent import (
     AgentModel,
     AgentVersionModel,
     OrganizationAgentModel,
 )
-from prosales.infrastructure.database.models_insights import InsightModel
-from prosales.infrastructure.database.models_performance import PatternClusterModel
-from prosales.infrastructure.database.repositories.insights import SQLInsightsRepository
+from learning_engine.infrastructure.database.models_insights import InsightModel
+from learning_engine.infrastructure.database.models_performance import PatternClusterModel
+from learning_engine.infrastructure.database.repositories.insights import SQLInsightsRepository
 
 SEED_TAG = "seed:aura"
 

@@ -4,8 +4,8 @@ flags what's required before booking."""
 
 from types import SimpleNamespace
 
-from prosales.core.models.qualification_schema import QualificationField, QualificationSchema
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.core.models.qualification_schema import QualificationField, QualificationSchema
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 def _schema():

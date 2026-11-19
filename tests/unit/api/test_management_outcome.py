@@ -15,9 +15,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.dependencies import get_authenticated_org
-from prosales.api.v1.endpoints.management import router as management_router
-from prosales.infrastructure.database.models_agent import OrganizationModel
+from learning_engine.api.v1.dependencies import get_authenticated_org
+from learning_engine.api.v1.endpoints.management import router as management_router
+from learning_engine.infrastructure.database.models_agent import OrganizationModel
 
 app = FastAPI()
 app.include_router(management_router, prefix="/api/v1")
@@ -98,10 +98,10 @@ class TestOutcome:
         conversation_id = uuid.uuid4()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
-            patch("prosales.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
-            patch("prosales.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock),
-            patch("prosales.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
+            patch("learning_engine.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
+            patch("learning_engine.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock),
+            patch("learning_engine.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -125,10 +125,10 @@ class TestOutcome:
         conversation_id = uuid.uuid4()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
-            patch("prosales.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
-            patch("prosales.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
-            patch("prosales.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
+            patch("learning_engine.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
+            patch("learning_engine.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
+            patch("learning_engine.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -149,10 +149,10 @@ class TestOutcome:
         conversation_id = uuid.uuid4()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
-            patch("prosales.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
-            patch("prosales.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
-            patch("prosales.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
+            patch("learning_engine.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
+            patch("learning_engine.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
+            patch("learning_engine.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -177,10 +177,10 @@ class TestOutcome:
         conversation_id = uuid.uuid4()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
-            patch("prosales.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
-            patch("prosales.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
-            patch("prosales.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
+            patch("learning_engine.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
+            patch("learning_engine.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
+            patch("learning_engine.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -200,10 +200,10 @@ class TestOutcome:
         conversation_id = uuid.uuid4()
 
         with (
-            patch("prosales.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
-            patch("prosales.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
-            patch("prosales.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
-            patch("prosales.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
+            patch("learning_engine.api.v1.endpoints.management._get_session_from_org", new_callable=AsyncMock, return_value=session),
+            patch("learning_engine.api.v1.endpoints.management.run_live_learning", new_callable=AsyncMock) as mock_rll,
+            patch("learning_engine.api.v1.endpoints.management._propagate_outcome_to_clusters", new_callable=AsyncMock) as mock_prop,
+            patch("learning_engine.api.v1.endpoints.management.async_session_factory", _fake_session_factory()),
         ):
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:

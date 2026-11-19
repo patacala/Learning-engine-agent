@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from prosales.core.enums import Intent
-from prosales.engines.analyzers.intent import IntentDetector
+from learning_engine.core.enums import Intent
+from learning_engine.engines.analyzers.intent import IntentDetector
 
 
 class FakeLLM:

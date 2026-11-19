@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from prosales.core.models.agent import AgentContext
-from prosales.infrastructure.agent.resolver import (
+from learning_engine.core.models.agent import AgentContext
+from learning_engine.infrastructure.agent.resolver import (
     AgentContextResolver,
     resolve_by_version_id,
     resolve_published_version,
 )
-from prosales.infrastructure.security.api_keys import hash_api_key
+from learning_engine.infrastructure.security.api_keys import hash_api_key
 
 
 @pytest.fixture

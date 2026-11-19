@@ -1,8 +1,8 @@
 import pytest
 
-from prosales.core.enums import Intent, Sentiment
-from prosales.core.models.analysis import AnalysisResult, IntentResult, SentimentResult
-from prosales.engines.decision.engine import DecisionEngine
+from learning_engine.core.enums import Intent, Sentiment
+from learning_engine.core.models.analysis import AnalysisResult, IntentResult, SentimentResult
+from learning_engine.engines.decision.engine import DecisionEngine
 
 
 @pytest.fixture

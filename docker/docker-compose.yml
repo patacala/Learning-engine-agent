@@ -2,16 +2,16 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: prosales
-      POSTGRES_PASSWORD: prosales
-      POSTGRES_DB: prosales
+      POSTGRES_USER: learning_engine
+      POSTGRES_PASSWORD: learning_engine
+      POSTGRES_DB: learning_engine
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prosales"]
+      test: ["CMD-SHELL", "pg_isready -U learning_engine"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -35,8 +35,8 @@ services:
       context: ..
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://prosales:prosales@postgres:5432/prosales
-      DATABASE_SYNC_URL: postgresql://prosales:prosales@postgres:5432/prosales
+      DATABASE_URL: postgresql+asyncpg://learning_engine:learning_engine@postgres:5432/learning_engine
+      DATABASE_SYNC_URL: postgresql://learning_engine:learning_engine@postgres:5432/learning_engine
       REDIS_URL: redis://redis:6379/0
       WEB_WORKERS: "4"
       APP_ENV: production

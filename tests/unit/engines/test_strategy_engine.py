@@ -4,10 +4,10 @@ import pytest
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from prosales.core.enums import Intent, StrategyType
-from prosales.core.models.analysis import AnalysisResult, IntentResult, StageResult
-from prosales.core.enums import ConversationStage
-from prosales.engines.strategy.engine import StrategyEngine
+from learning_engine.core.enums import Intent, StrategyType
+from learning_engine.core.models.analysis import AnalysisResult, IntentResult, StageResult
+from learning_engine.core.enums import ConversationStage
+from learning_engine.engines.strategy.engine import StrategyEngine
 
 
 @pytest.mark.asyncio

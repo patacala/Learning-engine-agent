@@ -1,8 +1,8 @@
 import pytest
 
-from prosales.core.enums import Sentiment
-from prosales.core.models.analysis import AnalysisResult, SentimentResult
-from prosales.engines.personality.engine import PersonalityEngine
+from learning_engine.core.enums import Sentiment
+from learning_engine.core.models.analysis import AnalysisResult, SentimentResult
+from learning_engine.engines.personality.engine import PersonalityEngine
 
 
 @pytest.fixture

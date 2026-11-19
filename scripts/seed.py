@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from prosales.config import settings
+from learning_engine.config import settings
 from scripts.seed_strategies import seed_strategies
 
 
@@ -55,7 +55,7 @@ async def _run(with_knowledge: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ProSales first-run seed.")
+    parser = argparse.ArgumentParser(description="LearningEngine first-run seed.")
     parser.add_argument(
         "--knowledge",
         action="store_true",

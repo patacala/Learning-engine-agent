@@ -2,7 +2,7 @@
 
 import pytest
 
-from prosales.channels.voice.providers.base import VoiceChunk, VoiceEvent
+from learning_engine.channels.voice.providers.base import VoiceChunk, VoiceEvent
 
 
 @pytest.mark.asyncio

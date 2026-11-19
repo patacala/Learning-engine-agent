@@ -7,8 +7,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from prosales.api.v1.dependencies import verify_internal_token
-from prosales.api.v1.endpoints.agents import router
+from learning_engine.api.v1.dependencies import verify_internal_token
+from learning_engine.api.v1.endpoints.agents import router
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v1")
@@ -48,7 +48,7 @@ class TestListAgents:
         session = _mock_session()
         session.execute = AsyncMock(return_value=mock_result)
 
-        from prosales.api.v1.dependencies import get_db_session
+        from learning_engine.api.v1.dependencies import get_db_session
         app.dependency_overrides[get_db_session] = lambda: session
 
         transport = ASGITransport(app=app)
@@ -72,7 +72,7 @@ class TestListAgents:
         session = _mock_session()
         session.execute = AsyncMock(return_value=mock_result)
 
-        from prosales.api.v1.dependencies import get_db_session
+        from learning_engine.api.v1.dependencies import get_db_session
         app.dependency_overrides[get_db_session] = lambda: session
 
         transport = ASGITransport(app=app)

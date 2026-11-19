@@ -25,7 +25,7 @@ export function LoginScreen({ error, onSubmit }: Props) {
         onSubmit={handleSubmit}
         className="w-[320px] rounded-lg bg-white p-8 shadow-sm border border-gray-200"
       >
-        <h1 className="text-lg font-semibold text-gray-900 mb-1">ProSales</h1>
+        <h1 className="text-lg font-semibold text-gray-900 mb-1">LearningEngine</h1>
         <p className="text-sm text-gray-500 mb-6">Sign in to continue</p>
         <input
           type="password"

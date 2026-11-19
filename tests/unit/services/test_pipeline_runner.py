@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from prosales.services.pipeline_runner import PipelineRunner, PipelineResult
+from learning_engine.services.pipeline_runner import PipelineRunner, PipelineResult
 
 
 @pytest.mark.asyncio
@@ -37,11 +37,11 @@ async def test_runner_produces_correct_result():
         "route": mock_route,
     }
 
-    with patch("prosales.services.pipeline_runner.SQLEventRepository"), \
-         patch("prosales.services.pipeline_runner.EventStore"), \
-         patch("prosales.services.pipeline_runner.create_llm_provider"), \
-         patch("prosales.services.pipeline_runner.create_analyzer_llm"), \
-         patch("prosales.services.pipeline_runner.build_cognitive_graph") as mock_graph:
+    with patch("learning_engine.services.pipeline_runner.SQLEventRepository"), \
+         patch("learning_engine.services.pipeline_runner.EventStore"), \
+         patch("learning_engine.services.pipeline_runner.create_llm_provider"), \
+         patch("learning_engine.services.pipeline_runner.create_analyzer_llm"), \
+         patch("learning_engine.services.pipeline_runner.build_cognitive_graph") as mock_graph:
 
         mock_compiled = AsyncMock()
         mock_compiled.ainvoke.return_value = pipeline_result_state
@@ -71,11 +71,11 @@ async def test_runner_without_agent_context():
         "response": "Default response",
     }
 
-    with patch("prosales.services.pipeline_runner.SQLEventRepository"), \
-         patch("prosales.services.pipeline_runner.EventStore"), \
-         patch("prosales.services.pipeline_runner.create_llm_provider"), \
-         patch("prosales.services.pipeline_runner.create_analyzer_llm"), \
-         patch("prosales.services.pipeline_runner.build_cognitive_graph") as mock_graph:
+    with patch("learning_engine.services.pipeline_runner.SQLEventRepository"), \
+         patch("learning_engine.services.pipeline_runner.EventStore"), \
+         patch("learning_engine.services.pipeline_runner.create_llm_provider"), \
+         patch("learning_engine.services.pipeline_runner.create_analyzer_llm"), \
+         patch("learning_engine.services.pipeline_runner.build_cognitive_graph") as mock_graph:
 
         mock_compiled = AsyncMock()
         mock_compiled.ainvoke.return_value = pipeline_result_state
@@ -107,9 +107,9 @@ class TestCompiledGraphCache:
         sf = AsyncMock()
         runner = PipelineRunner(sf, cache=None)
 
-        with patch("prosales.services.pipeline_runner.create_llm_provider"), \
-             patch("prosales.services.pipeline_runner.create_analyzer_llm"), \
-             patch("prosales.services.pipeline_runner.build_cognitive_graph") as mock_graph:
+        with patch("learning_engine.services.pipeline_runner.create_llm_provider"), \
+             patch("learning_engine.services.pipeline_runner.create_analyzer_llm"), \
+             patch("learning_engine.services.pipeline_runner.build_cognitive_graph") as mock_graph:
             mock_graph.return_value.compile.return_value = MagicMock(name="compiled")
 
             first = runner._get_compiled_graph(has_providers=False)
@@ -122,9 +122,9 @@ class TestCompiledGraphCache:
         sf = AsyncMock()
         runner = PipelineRunner(sf, cache=MagicMock())
 
-        with patch("prosales.services.pipeline_runner.create_llm_provider"), \
-             patch("prosales.services.pipeline_runner.create_analyzer_llm"), \
-             patch("prosales.services.pipeline_runner.build_cognitive_graph") as mock_graph:
+        with patch("learning_engine.services.pipeline_runner.create_llm_provider"), \
+             patch("learning_engine.services.pipeline_runner.create_analyzer_llm"), \
+             patch("learning_engine.services.pipeline_runner.build_cognitive_graph") as mock_graph:
             mock_graph.return_value.compile.side_effect = [
                 MagicMock(name="no_providers"),
                 MagicMock(name="with_providers"),

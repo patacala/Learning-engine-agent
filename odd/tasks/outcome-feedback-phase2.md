@@ -1,9 +1,9 @@
-# Feature: outcome-feedback-phase2 (appointment-confirmed WITHOUT payment → ProSales)
+# Feature: outcome-feedback-phase2 (appointment-confirmed WITHOUT payment → LearningEngine)
 
 ## Objective
 Extend the verified-outcome learning loop (Phase 1) to the second TIGHT signal:
 an appointment that gets CONFIRMED without a payment. Push `"scheduled"` to
-ProSales so the conversation's moves are re-scored with real ground truth.
+LearningEngine so the conversation's moves are re-scored with real ground truth.
 
 ## Scope decision (user, 2026-10-06)
 Phase 2 = ONLY the appointment-confirmed-without-payment path (camino A).
@@ -23,7 +23,7 @@ Revisit later with a proper stage↔conversation link.
 - Phase 1 already wired `AIAgentsModule` into `NotificationsModule.imports`, so
   `ProsalesClientService` (with `reportOutcome(orgId, convId, outcome, notes?)`)
   is injectable in notifications consumers.
-- ProSales side needs NO change: `POST /management/conversations/{id}/outcome`
+- LearningEngine side needs NO change: `POST /management/conversations/{id}/outcome`
   (Phase 1) already handles `outcome="scheduled"`.
 
 ## Design (CRM only)
@@ -41,7 +41,7 @@ Revisit later with a proper stage↔conversation link.
 ## Known / accepted behavior
 - Double-report with Phase 1: when a payment confirms an appointment, BOTH
   `payment.completed` (Phase 1 → 'scheduled') and `appointment.confirmed`
-  (Phase 2 → 'scheduled') fire. Same conversation, same outcome. ProSales is
+  (Phase 2 → 'scheduled') fire. Same conversation, same outcome. LearningEngine is
   idempotent-ish (learned_at gate; then `_propagate_outcome_to_clusters`
   re-scores to the same outcome). Redundant work, harmless. Accepted.
 - Re-confirm / reschedule re-fires the push. Same outcome each time. Accepted.
@@ -49,7 +49,7 @@ Revisit later with a proper stage↔conversation link.
   a confirmed appointment tied to a conversation is a legit 'scheduled' signal.
 
 ## Does NOT change
-ProSales (no endpoint/schema/migration change). The move-approval model (moves
+LearningEngine (no endpoint/schema/migration change). The move-approval model (moves
 stay `pending`; only cluster success_rate re-scored).
 
 ## Test-first / verification
@@ -71,7 +71,7 @@ Direct inline: 1 non-trivial file (the consumer) + 2 mechanical edits (payload
 line, module registration). Full context already gathered.
 
 ## Progress / evidence
-Implemented 2026-10-06. CRM-only (ProSales unchanged — Phase 1 endpoint already
+Implemented 2026-10-06. CRM-only (LearningEngine unchanged — Phase 1 endpoint already
 handles outcome="scheduled").
 
 - **T1** `scheduling.service.ts` `appointmentEventPayload`: added

@@ -1,4 +1,4 @@
-from prosales.engines.knowledge.chunker import (
+from learning_engine.engines.knowledge.chunker import (
     CHUNK_TARGET_TOKENS,
     chunk_document,
     count_tokens,

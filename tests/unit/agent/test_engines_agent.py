@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from prosales.core.models.agent import AgentContext
-from prosales.engines.strategy.models import StrategySelection
+from learning_engine.core.models.agent import AgentContext
+from learning_engine.engines.strategy.models import StrategySelection
 
 
 def _make_agent_context(
@@ -37,7 +37,7 @@ def _make_analysis():
 class TestStrategyEngineCapabilityGating:
     @pytest.mark.asyncio
     async def test_skip_when_no_negotiation_capability(self):
-        from prosales.engines.strategy.engine import StrategyEngine
+        from learning_engine.engines.strategy.engine import StrategyEngine
 
         ctx = _make_agent_context(agent_capabilities=["voice"])  # No negotiation
 
@@ -51,7 +51,7 @@ class TestStrategyEngineCapabilityGating:
 
     @pytest.mark.asyncio
     async def test_passes_when_has_negotiation(self):
-        from prosales.engines.strategy.engine import StrategyEngine
+        from learning_engine.engines.strategy.engine import StrategyEngine
 
         ctx = _make_agent_context(agent_capabilities=["voice", "negotiation"])
 
@@ -68,7 +68,7 @@ class TestStrategyEngineCapabilityGating:
 class TestVoiceEngineCapabilityGating:
     @pytest.mark.asyncio
     async def test_passthrough_when_no_voice_capability(self):
-        from prosales.engines.voice.engine import VoiceLayerEngine
+        from learning_engine.engines.voice.engine import VoiceLayerEngine
 
         ctx = _make_agent_context(agent_capabilities=["negotiation"])  # No voice
 
@@ -86,7 +86,7 @@ class TestVoiceEngineCapabilityGating:
 class TestKnowledgeEngineCapabilityGating:
     @pytest.mark.asyncio
     async def test_skip_when_no_knowledge_capability(self):
-        from prosales.engines.knowledge.engine import KnowledgeEngine
+        from learning_engine.engines.knowledge.engine import KnowledgeEngine
 
         ctx = _make_agent_context(org_capabilities=[])  # No knowledge in org
 
@@ -104,8 +104,8 @@ class TestKnowledgeEngineCapabilityGating:
 class TestPersonalityEngineWithAgentContext:
     @pytest.mark.asyncio
     async def test_loads_personality_from_agent_version(self):
-        from prosales.engines.personality.engine import PersonalityEngine
-        from prosales.core.models.agent import AgentPersonalityConfig
+        from learning_engine.engines.personality.engine import PersonalityEngine
+        from learning_engine.core.models.agent import AgentPersonalityConfig
 
         ctx = _make_agent_context()
         mock_provider = AsyncMock()
@@ -131,8 +131,8 @@ class TestPersonalityEngineWithAgentContext:
 class TestDecisionEngineWithAgentContext:
     @pytest.mark.asyncio
     async def test_loads_rules_from_agent_version(self):
-        from prosales.engines.decision.engine import DecisionEngine
-        from prosales.core.models.agent import AgentRule
+        from learning_engine.engines.decision.engine import DecisionEngine
+        from learning_engine.core.models.agent import AgentRule
 
         ctx = _make_agent_context()
         mock_provider = AsyncMock()
@@ -153,7 +153,7 @@ class TestDecisionEngineWithAgentContext:
 class TestPromptBuilderWithAgentContext:
     @pytest.mark.asyncio
     async def test_uses_agent_version_id_for_lookup(self):
-        from prosales.engines.response.prompt_builder import PromptBuilder
+        from learning_engine.engines.response.prompt_builder import PromptBuilder
 
         ctx = _make_agent_context()
         mock_prompt_provider = AsyncMock()

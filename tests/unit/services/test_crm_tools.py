@@ -7,8 +7,8 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from prosales.core.models.qualification_schema import default_schema
-from prosales.services.crm_tools import (
+from learning_engine.core.models.qualification_schema import default_schema
+from learning_engine.services.crm_tools import (
     CRMToolExecutor,
     qualification_to_contact_update,
     tool_schemas,

@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.knowledge.pattern_retriever import LearningContext
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.engines.knowledge.pattern_retriever import LearningContext
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 @pytest.mark.asyncio

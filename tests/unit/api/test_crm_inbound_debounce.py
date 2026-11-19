@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import pytest
 
-import prosales.api.v1.endpoints.crm_inbound as ci
-from prosales.config import settings
+import learning_engine.api.v1.endpoints.crm_inbound as ci
+from learning_engine.config import settings
 
 
 class FakeCache:

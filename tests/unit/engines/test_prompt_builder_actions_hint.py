@@ -2,7 +2,7 @@
 the Action Layer is on, regardless of the org's appointment capability — only
 the appointment/payment guidance is capability-gated."""
 
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 class FakeAgentContext:

@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from prosales.infrastructure.llm.anthropic import AnthropicProvider
-from prosales.infrastructure.llm.openai import OpenAIProvider
-from prosales.infrastructure.llm.provider import LLMMessage
+from learning_engine.infrastructure.llm.anthropic import AnthropicProvider
+from learning_engine.infrastructure.llm.openai import OpenAIProvider
+from learning_engine.infrastructure.llm.provider import LLMMessage
 
 
 def _openai_chunk(delta_content=None, usage=None, model="gpt-4o-mini-2024-07-18"):
@@ -54,7 +54,7 @@ async def test_openai_stream_yields_text_and_reports_usage():
 
 @pytest.mark.asyncio
 async def test_openai_stream_wraps_errors():
-    from prosales.core.exceptions import LLMError
+    from learning_engine.core.exceptions import LLMError
 
     provider = OpenAIProvider.__new__(OpenAIProvider)
     provider.client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(

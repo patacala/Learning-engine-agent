@@ -20,9 +20,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
 
-from prosales.infrastructure.database.connection import async_session_factory
-from prosales.infrastructure.database.models_insights import InsightModel
-from prosales.infrastructure.vector_store.pgvector import PGVectorStore
+from learning_engine.infrastructure.database.connection import async_session_factory
+from learning_engine.infrastructure.database.models_insights import InsightModel
+from learning_engine.infrastructure.vector_store.pgvector import PGVectorStore
 
 
 async def backfill() -> int:

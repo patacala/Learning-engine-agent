@@ -1,7 +1,7 @@
 import pytest
 
-from prosales.core.enums import UrgencyLevel
-from prosales.engines.analyzers.urgency import UrgencyDetector
+from learning_engine.core.enums import UrgencyLevel
+from learning_engine.engines.analyzers.urgency import UrgencyDetector
 
 
 @pytest.fixture

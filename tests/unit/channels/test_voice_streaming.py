@@ -2,7 +2,7 @@
 
 import pytest
 
-from prosales.channels.voice.streaming import split_into_sentences
+from learning_engine.channels.voice.streaming import split_into_sentences
 
 
 def test_split_simple_sentences():

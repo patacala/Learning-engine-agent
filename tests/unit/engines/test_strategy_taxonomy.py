@@ -2,9 +2,9 @@
 
 import pytest
 
-from prosales.core.enums import StrategyType
-from prosales.engines.strategy.catalog import STRATEGY_CATALOG
-from prosales.engines.strategy.taxonomy import (
+from learning_engine.core.enums import StrategyType
+from learning_engine.engines.strategy.catalog import STRATEGY_CATALOG
+from learning_engine.engines.strategy.taxonomy import (
     STRATEGY_TAXONOMY,
     StrategyCategory,
     StrategyMeta,

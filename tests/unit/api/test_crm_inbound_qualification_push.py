@@ -4,7 +4,7 @@ qualification isn't re-sent every turn."""
 
 import pytest
 
-from prosales.api.v1.endpoints.crm_inbound import _push_qualification
+from learning_engine.api.v1.endpoints.crm_inbound import _push_qualification
 
 
 class FakeExecutor:

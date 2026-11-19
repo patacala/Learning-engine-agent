@@ -7,12 +7,12 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.core.models.qualification_schema import (
+from learning_engine.core.models.qualification_schema import (
     QualificationField,
     QualificationSchema,
     default_schema,
 )
-from prosales.infrastructure.agent.providers import AgentQualificationProvider
+from learning_engine.infrastructure.agent.providers import AgentQualificationProvider
 
 
 def _session_factory(row):

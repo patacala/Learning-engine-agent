@@ -2,8 +2,8 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "ProSales — System Architecture",
-    "output": "prosales-architecture.architecture.html",
+    "title": "LearningEngine — System Architecture",
+    "output": "learning_engine-architecture.architecture.html",
     "quality_profile": "showcase",
     "views": [
       { "id": "request-path", "label": "A message's request path", "focus": ["frontend", "api", "pipeline", "postgres", "redis"], "note": "Frontend and voice/roleplay channels call the FastAPI layer, which invokes the LangGraph cognitive pipeline against short-lived DB sessions." },
@@ -24,7 +24,7 @@
     { "id": "learning_pipeline", "type": "backend", "label": "Learning Pipeline", "sublabel": "moves/expressions/insights", "pos": [500, 530], "size": [150, 62] }
   ],
   "boundaries": [
-    { "kind": "region", "label": "ProSales application (FastAPI + LangGraph)", "wraps": ["api", "pipeline", "roleplay", "learning_pipeline"], "pad": 20 }
+    { "kind": "region", "label": "LearningEngine application (FastAPI + LangGraph)", "wraps": ["api", "pipeline", "roleplay", "learning_pipeline"], "pad": 20 }
   ],
   "connections": [
     { "from": "frontend", "to": "api", "label": "HTTPS / REST + SSE", "variant": "emphasis", "labelDy": 46 },

@@ -6,15 +6,15 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.channels.roleplay.engine import ClientPersonaResponder
-from prosales.channels.roleplay.service import (
+from learning_engine.channels.roleplay.engine import ClientPersonaResponder
+from learning_engine.channels.roleplay.service import (
     RoleplayClosedError,
     RoleplayOutcomeError,
     RoleplayService,
     learns_from_outcome,
     speaker_for,
 )
-from prosales.infrastructure.llm.provider import LLMMessage, LLMResponse
+from learning_engine.infrastructure.llm.provider import LLMMessage, LLMResponse
 
 
 # --- speaker_for: real speaker depends on mode -----------------------------
@@ -85,14 +85,14 @@ async def test_client_turn_stores_seller_as_agent_role():
     service = RoleplayService()
 
     with patch.object(service, "_load", AsyncMock(return_value=conv)), patch(
-        "prosales.channels.roleplay.service.async_session_factory", fake_factory
+        "learning_engine.channels.roleplay.service.async_session_factory", fake_factory
     ), patch(
-        "prosales.channels.roleplay.service.SQLConversationRepository",
+        "learning_engine.channels.roleplay.service.SQLConversationRepository",
         return_value=repo,
     ), patch(
-        "prosales.channels.roleplay.service.create_llm_provider"
+        "learning_engine.channels.roleplay.service.create_llm_provider"
     ), patch(
-        "prosales.channels.roleplay.service.ClientPersonaResponder"
+        "learning_engine.channels.roleplay.service.ClientPersonaResponder"
     ) as mock_responder:
         mock_responder.return_value.respond = AsyncMock(return_value="Sigue caro.")
         reply = await service.turn(conv.id, "Tenemos financiamiento", agent_context=None)
@@ -159,7 +159,7 @@ async def test_end_with_sub_outcome_derives_terminal_outcome():
 
     service = RoleplayService()
     with patch(
-        "prosales.channels.roleplay.service.async_session_factory", fake_factory
+        "learning_engine.channels.roleplay.service.async_session_factory", fake_factory
     ):
         conversation_id, effective_outcome = await service.end(
             uuid4(), outcome="open", sub_outcome="objection_handled"
@@ -185,7 +185,7 @@ async def test_end_without_sub_outcome_keeps_back_compat():
 
     service = RoleplayService()
     with patch(
-        "prosales.channels.roleplay.service.async_session_factory", fake_factory
+        "learning_engine.channels.roleplay.service.async_session_factory", fake_factory
     ):
         conversation_id, effective_outcome = await service.end(
             uuid4(), outcome="lost"
@@ -212,7 +212,7 @@ def test_learns_only_from_terminal_outcomes():
 @pytest.mark.asyncio
 async def test_session_response_includes_learned_moves():
     """GET /roleplay/sessions/{id} surfaces moves learned from THIS session."""
-    from prosales.api.v1.endpoints import roleplay as ep
+    from learning_engine.api.v1.endpoints import roleplay as ep
 
     session_id = uuid4()
 

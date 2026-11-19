@@ -8,8 +8,8 @@ from uuid import uuid4
 import pytest
 from fastapi import BackgroundTasks
 
-import prosales.api.v1.endpoints.crm_inbound as ci
-from prosales.api.v1.schemas.crm_inbound import CRMInboundRequest
+import learning_engine.api.v1.endpoints.crm_inbound as ci
+from learning_engine.api.v1.schemas.crm_inbound import CRMInboundRequest
 
 
 def _payment_payload(conversation_id):

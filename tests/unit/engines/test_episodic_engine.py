@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.episodic.engine import EpisodicMemoryEngine
-from prosales.engines.episodic.models import Episode
+from learning_engine.engines.episodic.engine import EpisodicMemoryEngine
+from learning_engine.engines.episodic.models import Episode
 
 
 def _make_episode(**kwargs):

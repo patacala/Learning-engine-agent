@@ -1,0 +1,180 @@
+import hmac
+import logging
+from contextvars import ContextVar
+from typing import AsyncGenerator
+
+from fastapi import Cookie, Depends, Header, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from learning_engine.config import settings
+from learning_engine.core.models.agent import AgentContext
+from learning_engine.infrastructure.cache.redis import RedisCache
+from learning_engine.infrastructure.database.connection import async_session_factory
+from learning_engine.infrastructure.agent.resolver import AgentContextResolver
+from learning_engine.infrastructure.database.models_agent import OrganizationModel
+from learning_engine.infrastructure.security.api_keys import api_key_prefix, hash_api_key
+from learning_engine.infrastructure.security.session_tokens import verify_session_token
+
+# Name of the httpOnly cookie the UI's login endpoint sets (see endpoints/auth.py).
+SESSION_COOKIE_NAME = "learning_engine_session"
+
+logger = logging.getLogger(__name__)
+
+# Shared cache instance (initialized on first use)
+_redis_cache: RedisCache | None = None
+
+
+def get_redis_cache() -> RedisCache:
+    global _redis_cache
+    if _redis_cache is None:
+        _redis_cache = RedisCache()
+    return _redis_cache
+
+
+# The request-scoped AsyncSession. Management endpoints used to recover the
+# session with inspect(org).session, which returns the sync Session and then
+# raises MissingGreenlet on the first query.
+_request_session: ContextVar[AsyncSession | None] = ContextVar("learning_engine_request_session", default=None)
+
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as session:
+        async with session.begin():
+            token = _request_session.set(session)
+            try:
+                yield session
+            finally:
+                _request_session.reset(token)
+
+
+def current_db_session() -> AsyncSession:
+    session = _request_session.get()
+    if session is None:
+        raise RuntimeError("No request database session")
+    return session
+
+
+async def get_agent_context(
+    session: AsyncSession,
+    x_api_key: str | None = Header(None),
+) -> AgentContext | None:
+    """Resolve agent context from X-API-Key header. Returns None if no key provided."""
+    if not x_api_key:
+        return None
+
+    cache = get_redis_cache()
+    resolver = AgentContextResolver(session, cache)
+    ctx = await resolver.resolve(x_api_key)
+    if ctx is None:
+        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+    return ctx
+
+
+async def require_agent_context(
+    session: AsyncSession,
+    x_api_key: str | None,
+) -> AgentContext:
+    """Like ``get_agent_context`` but the key is MANDATORY.
+
+    Tenant-facing endpoints (conversation, contact) must never run without an
+    organization: an unscoped run would create NULL-org data and search the
+    knowledge base without a tenant filter.
+    """
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
+    ctx = await get_agent_context(session, x_api_key)
+    assert ctx is not None  # get_agent_context raises 401 on invalid keys
+    return ctx
+
+
+def _internal_token_ok(token: str | None, session_cookie: str | None = None) -> bool:
+    """Constant-time check of the internal API token OR a valid UI session cookie.
+
+    When INTERNAL_API_TOKEN is unset, internal endpoints are open ONLY in
+    development (local UI/tests); any other APP_ENV rejects every request so a
+    misconfigured production deploy fails closed for callers, not open.
+
+    The raw token (X-Internal-Token) stays accepted for trusted server-to-server
+    callers (scripts, eval tooling) — the browser UI no longer carries it
+    directly; it exchanges ui_login_password for session_cookie via /auth/login
+    instead, so the secret never ships in the JS bundle.
+    """
+    if not settings.internal_api_token:
+        if settings.app_env == "development":
+            return True
+        logger.error(
+            "INTERNAL_API_TOKEN is not set and APP_ENV=%s — rejecting internal API access",
+            settings.app_env,
+        )
+        return False
+    if token is not None and hmac.compare_digest(token, settings.internal_api_token):
+        return True
+    return verify_session_token(session_cookie, settings.internal_api_token)
+
+
+async def verify_internal_token(
+    x_internal_token: str | None = Header(None),
+    learning_engine_session: str | None = Cookie(None, alias=SESSION_COOKIE_NAME),
+) -> None:
+    """Gate for internal/training endpoints (learning, testing, agents, timeline)."""
+    if not _internal_token_ok(x_internal_token, learning_engine_session):
+        raise HTTPException(status_code=401, detail="Invalid or missing internal token")
+
+
+async def verify_internal_or_api_key(
+    x_internal_token: str | None = Header(None),
+    x_api_key: str | None = Header(None),
+    learning_engine_session: str | None = Cookie(None, alias=SESSION_COOKIE_NAME),
+) -> None:
+    """Gate for endpoints used by BOTH the internal UI and the CRM.
+
+    Accepts the internal token or UI session cookie, or a valid, active
+    organization API key (CRM calls e.g. /conversation/{id}/close and /feedback).
+    """
+    if _internal_token_ok(x_internal_token, learning_engine_session):
+        return
+    if x_api_key:
+        async with async_session_factory() as session:
+            stmt = select(OrganizationModel.id).where(
+                OrganizationModel.api_key_prefix == api_key_prefix(x_api_key),
+                OrganizationModel.api_key_hash == hash_api_key(x_api_key),
+                OrganizationModel.is_active.is_(True),
+            )
+            if (await session.execute(stmt)).scalar_one_or_none() is not None:
+                return
+    raise HTTPException(status_code=401, detail="Invalid or missing credentials")
+
+
+async def verify_provisioning_secret(
+    authorization: str = Header(...),
+) -> None:
+    """Validate provisioning secret from Authorization header."""
+    token = authorization.removeprefix("Bearer ").strip()
+    if not settings.provisioning_secret or token != settings.provisioning_secret:
+        raise HTTPException(status_code=401, detail="Invalid provisioning secret")
+
+
+async def get_authenticated_org(
+    session: AsyncSession = Depends(get_db_session),
+    authorization: str = Header(...),
+) -> OrganizationModel:
+    """Resolve org from Bearer API key. All management ops scoped to this org."""
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing API key")
+
+    prefix = api_key_prefix(token)
+    key_hash = hash_api_key(token)
+    stmt = select(OrganizationModel).where(
+        OrganizationModel.api_key_prefix == prefix,
+        OrganizationModel.api_key_hash == key_hash,
+        OrganizationModel.is_active.is_(True),
+    )
+    result = await session.execute(stmt)
+    org = result.scalar_one_or_none()
+
+    if org is None:
+        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+    org._auth_api_key = token  # transient: used for cache invalidation only
+    return org

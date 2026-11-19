@@ -1,6 +1,6 @@
 """Tests for the multi-signal OutcomeScorer."""
 
-from prosales.engines.performance.scorer import OutcomeScorer
+from learning_engine.engines.performance.scorer import OutcomeScorer
 
 
 def test_positive_transition_scores_high():

@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 
-import prosales.services.live_learning as live_learning
+import learning_engine.services.live_learning as live_learning
 
 
 def test_module_never_imports_approver():

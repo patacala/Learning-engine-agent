@@ -2,9 +2,9 @@
 
 import pytest
 
-from prosales.engines.evidence.models import EvidenceSource
-from prosales.engines.evidence.parser import TranscriptParser
-from prosales.engines.moves.extractor import MoveExtractor
+from learning_engine.engines.evidence.models import EvidenceSource
+from learning_engine.engines.evidence.parser import TranscriptParser
+from learning_engine.engines.moves.extractor import MoveExtractor
 
 
 class _MockLLM:

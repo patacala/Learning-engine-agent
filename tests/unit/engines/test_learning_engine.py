@@ -3,10 +3,10 @@
 import pytest
 from unittest.mock import AsyncMock
 
-from prosales.core.enums import Intent, Sentiment, StrategyType
-from prosales.core.models.analysis import AnalysisResult, IntentResult, SentimentResult
-from prosales.engines.learning.engine import LearningEngine, evaluate_effectiveness
-from prosales.engines.strategy.models import StrategySelection
+from learning_engine.core.enums import Intent, Sentiment, StrategyType
+from learning_engine.core.models.analysis import AnalysisResult, IntentResult, SentimentResult
+from learning_engine.engines.learning.engine import LearningEngine, evaluate_effectiveness
+from learning_engine.engines.strategy.models import StrategySelection
 
 
 @pytest.mark.asyncio

@@ -33,9 +33,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from prosales.config import settings
-from prosales.infrastructure.agent.bootstrap import bootstrap_tenant
-from prosales.infrastructure.agent.templates import AGENT_TEMPLATES, ORG_CAPABILITY_PRESETS
+from learning_engine.config import settings
+from learning_engine.infrastructure.agent.bootstrap import bootstrap_tenant
+from learning_engine.infrastructure.agent.templates import AGENT_TEMPLATES, ORG_CAPABILITY_PRESETS
 
 
 async def _run(args: argparse.Namespace) -> None:
@@ -74,7 +74,7 @@ async def _run(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Bootstrap the first working ProSales tenant.")
+    p = argparse.ArgumentParser(description="Bootstrap the first working LearningEngine tenant.")
     p.add_argument("--name", default=os.getenv("BOOTSTRAP_ORG_NAME", "Default Org"))
     p.add_argument("--slug", default=os.getenv("BOOTSTRAP_ORG_SLUG", "default"))
     p.add_argument(

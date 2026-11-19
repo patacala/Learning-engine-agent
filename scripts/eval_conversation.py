@@ -39,19 +39,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select
 
-from prosales.api.v1.dependencies import get_redis_cache
-from prosales.core.models.agent import AgentContext
-from prosales.infrastructure.database.connection import async_session_factory
-from prosales.infrastructure.database.models import ConversationModel
-from prosales.infrastructure.database.models_agent import (
+from learning_engine.api.v1.dependencies import get_redis_cache
+from learning_engine.core.models.agent import AgentContext
+from learning_engine.infrastructure.database.connection import async_session_factory
+from learning_engine.infrastructure.database.models import ConversationModel
+from learning_engine.infrastructure.database.models_agent import (
     AgentModel,
     AgentVersionModel,
     OrganizationAgentModel,
     OrganizationModel,
 )
-from prosales.infrastructure.database.repositories.client import SQLClientRepository
-from prosales.infrastructure.database.repositories.conversation import SQLConversationRepository
-from prosales.services.pipeline_runner import PipelineRunner
+from learning_engine.infrastructure.database.repositories.client import SQLClientRepository
+from learning_engine.infrastructure.database.repositories.conversation import SQLConversationRepository
+from learning_engine.services.pipeline_runner import PipelineRunner
 
 
 def _hr(title: str) -> None:

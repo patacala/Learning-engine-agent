@@ -2,8 +2,8 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "ProSales — Runtime: Incoming Message",
-    "output": "prosales-runtime.workflow.html",
+    "title": "LearningEngine — Runtime: Incoming Message",
+    "output": "learning_engine-runtime.workflow.html",
     "quality_profile": "showcase",
     "views": [
       { "id": "shared-path", "label": "Shared entry: remember → route", "focus": ["remember", "context_build", "analyze", "route", "identify"], "note": "Every message loads memory, builds context, runs analyzers, then ConversationManager decides the path." },

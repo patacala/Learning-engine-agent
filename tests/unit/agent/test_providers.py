@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from prosales.infrastructure.database.connection import live_session_factory
-from prosales.core.models.agent import (
+from learning_engine.infrastructure.database.connection import live_session_factory
+from learning_engine.core.models.agent import (
     AgentPersonalityConfig,
     AgentRule,
     AgentStrategy,
     AgentVoiceConfig,
 )
-from prosales.core.models.identity import AgentIdentity
-from prosales.infrastructure.agent.providers import (
+from learning_engine.core.models.identity import AgentIdentity
+from learning_engine.infrastructure.agent.providers import (
     AgentIdentityProvider,
     AgentPersonalityProvider,
     AgentPromptProvider,

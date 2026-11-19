@@ -2,8 +2,8 @@
 
 import pytest
 
-from prosales.engines.identity_learning.models import AgentStyleProfile
-from prosales.engines.response.prompt_builder import PromptBuilder
+from learning_engine.engines.identity_learning.models import AgentStyleProfile
+from learning_engine.engines.response.prompt_builder import PromptBuilder
 
 
 @pytest.mark.asyncio

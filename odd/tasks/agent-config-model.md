@@ -30,7 +30,7 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
       fallback + `_fallback_role(identity)` helper (prompt_builder.py).
 - [x] 1.3 CRM: agent-type selector in `config/agents/page.tsx`; `agent_type`
       threaded page → useAIAgents → web service → API controller → API service →
-      prosales-client (bootstrap body). CRM typecheck green (4/4).
+      learning_engine-client (bootstrap body). CRM typecheck green (4/4).
 - [x] 1.4 Tests: `tests/unit/agent/test_agent_templates.py` +
       `tests/unit/engines/test_prompt_builder_fallback.py` (8 new). Suite 433 green.
 
@@ -72,10 +72,10 @@ refinement. Tabs → final editable truth. A weak brief must not degrade the age
 
 ## Progress log
 - 2026-10-05: feature doc created, branch `feat/agent-config-model`. Starting Phase 1.
-- 2026-10-05: Phase 1 DONE (ProSales + CRM). 433 tests green, CRM typecheck green.
-  ProSales commit on feat/agent-config-model; CRM commit on its own branch.
-- 2026-10-05: Phase 2 DONE (ProSales only). Additive brief merge. 439 tests green.
-- 2026-10-05: Phase 3 DONE (ProSales + CRM). Configurable BANT + simplified
+- 2026-10-05: Phase 1 DONE (LearningEngine + CRM). 433 tests green, CRM typecheck green.
+  LearningEngine commit on feat/agent-config-model; CRM commit on its own branch.
+- 2026-10-05: Phase 2 DONE (LearningEngine only). Additive brief merge. 439 tests green.
+- 2026-10-05: Phase 3 DONE (LearningEngine + CRM). Configurable BANT + simplified
   QualificationTab. 444 tests green, CRM typecheck green.
-- 2026-10-05: Phase 4 DONE (ProSales only). Name asked at greeting, tone by
+- 2026-10-05: Phase 4 DONE (LearningEngine only). Name asked at greeting, tone by
   priority. 450 tests green. ALL 4 PHASES COMPLETE.

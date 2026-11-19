@@ -7,14 +7,14 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.core.enums import Intent, Sentiment, StrategyType, UrgencyLevel
-from prosales.core.models.analysis import (
+from learning_engine.core.enums import Intent, Sentiment, StrategyType, UrgencyLevel
+from learning_engine.core.models.analysis import (
     AnalysisResult,
     IntentResult,
     SentimentResult,
     UrgencyResult,
 )
-from prosales.core.models.events import (
+from learning_engine.core.models.events import (
     AnalyzerCompleted,
     DecisionMade,
     KnowledgeRetrieved,
@@ -22,7 +22,7 @@ from prosales.core.models.events import (
     ResponseGenerated,
     StrategySelected,
 )
-from prosales.core.models.execution import (
+from learning_engine.core.models.execution import (
     DecisionTrace,
     LLMCall,
     NodeTrace,
@@ -31,8 +31,8 @@ from prosales.core.models.execution import (
     StrategyTrace,
     Versions,
 )
-from prosales.engines.decision.rules import apply_rules
-from prosales.engines.strategy.selector import select_strategy
+from learning_engine.engines.decision.rules import apply_rules
+from learning_engine.engines.strategy.selector import select_strategy
 
 
 # --- Execution Model Tests ---

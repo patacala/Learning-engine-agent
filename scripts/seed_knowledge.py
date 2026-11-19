@@ -7,8 +7,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from prosales.infrastructure.database.connection import async_session_factory
-from prosales.engines.knowledge.indexer import index_document
+from learning_engine.infrastructure.database.connection import async_session_factory
+from learning_engine.engines.knowledge.indexer import index_document
 
 VEHICLES = [
     {

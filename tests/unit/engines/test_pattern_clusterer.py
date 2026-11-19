@@ -4,9 +4,9 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.moves.models import ConversationMove
-from prosales.engines.performance.clusterer import PatternClusterer, cosine
-from prosales.infrastructure.database.models_performance import PatternClusterModel
+from learning_engine.engines.moves.models import ConversationMove
+from learning_engine.engines.performance.clusterer import PatternClusterer, cosine
+from learning_engine.infrastructure.database.models_performance import PatternClusterModel
 
 AGENT = uuid4()
 

@@ -2,9 +2,9 @@
 
 import pytest
 
-from prosales.engines.evidence.models import EvidenceSource
-from prosales.engines.evidence.parser import TranscriptParser
-from prosales.engines.identity_learning.profiler import StyleProfiler
+from learning_engine.engines.evidence.models import EvidenceSource
+from learning_engine.engines.evidence.parser import TranscriptParser
+from learning_engine.engines.identity_learning.profiler import StyleProfiler
 
 TRANSCRIPT = (
     "Cliente: Hola.\n"

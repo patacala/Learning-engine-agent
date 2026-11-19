@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.insights.generator import InsightGenerator
-from prosales.infrastructure.database.models_performance import PatternClusterModel
+from learning_engine.engines.insights.generator import InsightGenerator
+from learning_engine.infrastructure.database.models_performance import PatternClusterModel
 
 
 class _MockLLM:

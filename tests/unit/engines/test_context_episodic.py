@@ -5,9 +5,9 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.context_builder.engine import ContextBuilderEngine
-from prosales.engines.episodic.models import EpisodeSummary
-from prosales.engines.memory.models import EpisodicMemory, FullMemory, SemanticMemory, WorkingMemory
+from learning_engine.engines.context_builder.engine import ContextBuilderEngine
+from learning_engine.engines.episodic.models import EpisodeSummary
+from learning_engine.engines.memory.models import EpisodicMemory, FullMemory, SemanticMemory, WorkingMemory
 
 
 class TestContextBuilderEpisodic:

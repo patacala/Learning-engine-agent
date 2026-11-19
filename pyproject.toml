@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "prosales"
+name = "learning_engine"
 version = "0.1.0"
-description = "ProSales - Sistema Cognitivo de Ventas"
+description = "Learning Engine Agent - Sistema Cognitivo de Ventas"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
@@ -42,7 +42,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/prosales"]
+packages = ["src/learning_engine"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

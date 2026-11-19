@@ -4,10 +4,10 @@ from uuid import uuid4
 
 import pytest
 
-from prosales.engines.knowledge.pattern_retriever import PatternRetriever, _matches_state
-from prosales.engines.moves.states import infer_client_state
-from prosales.engines.performance.scorer import OutcomeScorer
-from prosales.services.live_learning import outcome_signals
+from learning_engine.engines.knowledge.pattern_retriever import PatternRetriever, _matches_state
+from learning_engine.engines.moves.states import infer_client_state
+from learning_engine.engines.performance.scorer import OutcomeScorer
+from learning_engine.services.live_learning import outcome_signals
 
 
 # --- infer_client_state ---
